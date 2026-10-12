@@ -7,6 +7,15 @@
     python bench/run_bench.py sink-recovery --reps 5 --outage 10
     python bench/run_bench.py all
 
+Stage 2 (needs the analytics profile up, and the sink caught up so market.bars can be built):
+
+    python bench/run_bench.py jobs --reps 5        # compaction, the three-API question, serving extract
+    python bench/run_bench.py bucketing --reps 5 --inflate 20   # plans and timings, bucketed vs plain
+    python bench/run_bench.py caching --reps 5 --inflate 20
+    python bench/run_bench.py ml --reps 5          # metrics vs baselines, depth sweep
+    python bench/run_bench.py text2sql --reps 3    # model calls; costs money with the vertex backend
+    python bench/run_bench.py spark                # all of the above except text2sql
+
 Output goes to bench/scratch/ unless --final is given, which writes to
 bench/results/. Each run also writes <name>.meta.json with the machine, the
 commit and the exact command, so a number can be traced back.
@@ -14,6 +23,7 @@ commit and the exact command, so a number can be traced back.
 import argparse
 import csv
 import json
+import os
 import platform
 import re
 import statistics
@@ -51,6 +61,8 @@ def machine_info() -> dict:
         "docker_version": ver, "docker_os": osname, "host_os": platform.platform(),
         "commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                                  text=True).stdout.strip(),
+        "uncommitted_changes": bool(subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
+                                                   capture_output=True, text=True).stdout.strip()),
     }
 
 
@@ -159,9 +171,131 @@ def sink_recovery(reps: int, outage: float, rate: float, final: bool) -> None:
     write_results("sink_restart_recovery", rows, final)
 
 
+def spark_job(job: str, *args: str, timeout: float = 3600) -> dict:
+    """Run one analytics job in the driver container and return its RESULT line."""
+    passthrough = [x for k in ("OLLAMA_MODEL", "OLLAMA_HOST", "MDP_SQL_MODEL") if os.environ.get(k)
+                   for x in ("-e", f"{k}={os.environ[k]}")]
+    res = compose("exec", "-T", *passthrough, "driver", "spark-submit", "/app/src/mdp/analytics/jobs.py",
+                  job, *args, timeout=timeout, check=False)
+    lines = [ln for ln in res.stdout.splitlines() if ln.startswith("RESULT ")]
+    if res.returncode != 0 or not lines:
+        raise RuntimeError(f"spark job {job} failed (exit {res.returncode}):\n{res.stdout[-3000:]}\n{res.stderr[-3000:]}")
+    return json.loads(lines[-1][len("RESULT "):])
+
+
+def spark_meta() -> dict:
+    rows = int(stack.sql("SELECT COUNT(*) FROM bars"))
+    return {"source_rows": rows, "spark": "apache/spark:4.2.0, 1 master, 2 workers x 2 cores, "
+            "executor memory 1g + 256m overhead, driver 768m, shuffle partitions 8, 8 buckets"}
+
+
+def jobs(reps: int, final: bool) -> None:
+    rows = []
+    for rep in range(1, reps + 1):
+        for name in ("compact", "question", "serving"):
+            doc = spark_job(name)
+            rows.append({"rep": rep, "job": name, "wall_seconds": doc["wall_seconds"],
+                         "rows": doc.get("rows") or doc.get("source_rows") or "",
+                         "table_files": doc.get("table_files", "")})
+            if name == "question":
+                rows += [{"rep": rep, "job": f"question-{api}", "wall_seconds": doc[f"{api}_seconds"],
+                          "rows": "", "table_files": ""} for api in ("rdd", "dataframe", "sql")]
+                if not doc["identical"]:
+                    raise RuntimeError("the three APIs disagreed")
+            say(f"jobs rep {rep}: {name} {doc['wall_seconds']}s")
+    for name in sorted({r["job"] for r in rows}):
+        summarize(f"{name} wall seconds", [r["wall_seconds"] for r in rows if r["job"] == name])
+    write_results("analytics_job_runtime", rows, final, spark_meta())
+
+
+def bucketing(reps: int, final: bool, inflate: int, inner: int = 3) -> None:
+    rows, plans = [], {}
+    for rep in range(1, reps + 1):
+        doc = spark_job("bucketing", "--reps", str(inner), "--inflate", str(inflate))
+        for variant, qs in doc["variants"].items():
+            for query, d in qs.items():
+                plans.setdefault((variant, query), d["plan"])
+                for k, sec in enumerate(d["seconds"], 1):
+                    rows.append({"rep": rep, "run": k, "rows": doc["rows"], "layout": variant, "query": query,
+                                 "exchanges": d["exchanges"], "bucketed_scan": d["bucketed_scan"],
+                                 "seconds": sec})
+        say(f"bucketing rep {rep} done")
+    for layout in ("bucketed", "flat"):
+        for query in ("group_by", "join"):
+            summarize(f"{layout} {query} seconds",
+                      [r["seconds"] for r in rows if r["layout"] == layout and r["query"] == query])
+    d = out_dir(final)
+    with open(d / "bucketing_plans.txt", "w", newline="\n") as f:
+        for (variant, query), plan in plans.items():
+            f.write(f"=== {variant} / {query}\n{plan}\n\n")
+    write_results("bucketing", rows, final, spark_meta())
+
+
+def caching(reps: int, final: bool, inflate: int) -> None:
+    rows = []
+    for rep in range(1, reps + 1):
+        doc = spark_job("caching", "--repeats", "3", "--inflate", str(inflate))
+        for i, sec in enumerate(doc["uncached_seconds"], 1):
+            rows.append({"rep": rep, "phase": "uncached", "run": i, "seconds": sec})
+        rows.append({"rep": rep, "phase": "cache_fill", "run": 1, "seconds": doc["cache_fill_seconds"]})
+        for i, sec in enumerate(doc["cached_seconds"], 1):
+            rows.append({"rep": rep, "phase": "cached", "run": i, "seconds": sec})
+        say(f"caching rep {rep}: uncached {doc['uncached_seconds']} cached {doc['cached_seconds']}")
+    for phase in ("uncached", "cache_fill", "cached"):
+        summarize(f"{phase} seconds", [r["seconds"] for r in rows if r["phase"] == phase])
+    write_results("caching", rows, final, spark_meta())
+
+
+def ml(reps: int, final: bool) -> None:
+    metrics, sweep = [], []
+    for rep in range(1, reps + 1):
+        doc = spark_job("ml")
+        for name, m in doc["baselines"].items():
+            metrics.append({"rep": rep, "model": f"baseline:{name}", "depth": "", "test_r2": m["r2"],
+                            "test_rmse": m["rmse"]})
+        metrics.append({"rep": rep, "model": "tree:validation-chosen", "depth": doc["chosen_depth"],
+                        "test_r2": doc["chosen"]["test_r2"], "test_rmse": ""})
+        if doc.get("depth_5"):
+            metrics.append({"rep": rep, "model": "tree:depth-5", "depth": 5,
+                            "test_r2": doc["depth_5"]["test_r2"], "test_rmse": ""})
+        for r in doc["sweep"]:
+            sweep.append({"rep": rep, **{k: r[k] for k in ("depth", "train_r2", "test_r2", "fit_seconds")}})
+        say(f"ml rep {rep}: depth {doc['chosen_depth']} test R2 {doc['chosen']['test_r2']:.3f}, "
+            f"persistence {doc['baselines']['persistence']['r2']:.3f}, {doc['seconds']}s")
+    summarize("chosen-depth test R2", [r["test_r2"] for r in metrics if r["model"] == "tree:validation-chosen"])
+    extra = {**spark_meta(), "split": doc["split"], "rows": doc["rows"], "importances": doc["importances"]}
+    write_results("ml_metrics", metrics, final, extra)
+    write_results("ml_depth_sweep", sweep, final, extra)
+
+
+def text2sql(reps: int, backend: str, final: bool) -> None:
+    rows, runs = [], []
+    for rep in range(1, reps + 1):
+        doc = spark_job("text2sql", "--backend", backend, timeout=3600)
+        runs.append(doc)
+        for c in doc["cases"]:
+            rows.append({"rep": rep, "id": c["id"], "backend": doc["backend"], "correct": c["correct"],
+                         "first_try": c["first_try"], "attempts": c["attempts"],
+                         "model_seconds": c.get("model_seconds", ""), "seconds": c["seconds"]})
+        say(f"text2sql rep {rep}: {doc['correct']}/{doc['questions']} correct, "
+            f"first try {doc['first_try_accuracy']:.2f}, median {doc['median_seconds']}s")
+    d = out_dir(final)
+    with open(d / "text2sql_runs.jsonl", "w", newline="\n") as f:
+        for doc in runs:
+            f.write(json.dumps(doc) + "\n")
+    summarize("accuracy", [r["accuracy"] for r in runs])
+    summarize("median seconds per question", [r["median_seconds"] for r in runs])
+    write_results("text2sql_eval", rows, final, {**spark_meta(), "backend": runs[0]["backend"],
+                                                 "questions": runs[0]["questions"]})
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("which", choices=["producer", "lag", "export", "datanode", "sink-recovery", "all"])
+    ap.add_argument("which", choices=["producer", "lag", "export", "datanode", "sink-recovery", "all",
+                                      "jobs", "bucketing", "caching", "ml", "text2sql", "spark"])
+    ap.add_argument("--backend", choices=["vertex", "ollama"], default="vertex", help="text2sql only")
+    ap.add_argument("--inflate", type=int, default=1,
+                    help="bucketing and caching: stack this many shifted copies of the bars first")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--rate", type=float, default=100, help="bars/s for the live generator")
     ap.add_argument("--seconds", type=float, default=60, help="length of one lag run")
@@ -169,7 +303,8 @@ def main() -> int:
     ap.add_argument("--final", action="store_true", help="write to bench/results instead of bench/scratch")
     args = ap.parse_args()
 
-    todo = ["producer", "lag", "export", "datanode", "sink-recovery"] if args.which == "all" else [args.which]
+    todo = {"all": ["producer", "lag", "export", "datanode", "sink-recovery"],
+            "spark": ["jobs", "bucketing", "caching", "ml"]}.get(args.which, [args.which])
     for name in todo:
         say(f"== {name}")
         if name == "producer":
@@ -180,6 +315,16 @@ def main() -> int:
             export(args.reps, args.final)
         elif name == "datanode":
             datanode(args.reps, args.final)
+        elif name == "jobs":
+            jobs(args.reps, args.final)
+        elif name == "bucketing":
+            bucketing(args.reps, args.final, args.inflate)
+        elif name == "caching":
+            caching(args.reps, args.final, args.inflate)
+        elif name == "ml":
+            ml(args.reps, args.final)
+        elif name == "text2sql":
+            text2sql(args.reps, args.backend, args.final)
         else:
             sink_recovery(args.reps, args.outage, args.rate, args.final)
     return 0
