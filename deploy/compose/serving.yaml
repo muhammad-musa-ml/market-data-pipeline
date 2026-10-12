@@ -136,7 +136,7 @@ services:
   quotes:
     <<: *serving
     profiles: [serving-quotes]
-    command: ["python", "-m", "mdp.serving.quotes"]
+    command: ["python", "-m", "mdp.serving.quotes", "--from-beginning"]
     depends_on:
       serving-init: {condition: service_completed_successfully}
       kafka-init: {condition: service_completed_successfully}
