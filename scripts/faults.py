@@ -3,6 +3,7 @@
     python scripts/faults.py datanode        # kill a DataNode while the aggregate RPC is being called
     python scripts/faults.py broker          # kill a Kafka broker while bars are being produced
     python scripts/faults.py sink-crash      # crash the HDFS sink at random points and restart it
+    python scripts/faults.py producer-crash  # kill the producer at random moments and restart it
     python scripts/faults.py all
 
 Each drill ends by running the correctness checker (HDFS vs MySQL) where it
@@ -130,6 +131,36 @@ def broker(rate: float = 300, kill_at: float = 15, restore_at: float = 40, total
     return result
 
 
+def producer_crash(rate: float = 300, total: float = 60, kills: int = 4, seed: int = 2) -> dict:
+    """Kill the producer at random moments and start it again; rows must neither repeat nor go missing."""
+    rng = random.Random(seed)
+    start_id = _max_id()
+    _generator(rate)
+    t_end = time.time() + total
+    done = 0
+    while time.time() < t_end and done < kills:
+        time.sleep(rng.uniform(3, total / kills))
+        stack.kill("producer")
+        done += 1
+        say(f"killed producer ({done}/{kills})")
+        time.sleep(rng.uniform(0.5, 3))
+        stack.start("producer")
+    time.sleep(max(0, t_end - time.time()))
+    _stop_generator()
+    end_id = _max_id()
+    report = stack.verify(timeout=240)
+    result = {
+        "producer_kills": done,
+        "bars_inserted": end_id - start_id,
+        "check": {k: report[k] for k in ("expected", "found_rows", "duplicate_count", "gap_count",
+                                          "mismatch_count", "ok")},
+    }
+    say("producer-crash result: " + json.dumps(result))
+    if not report["ok"]:
+        die("duplicates or gaps after the producer was killed")
+    return result
+
+
 def sink_crash(rate: float = 300, total: float = 60, prob: float = 0.25, seed: int = 1) -> dict:
     """Run the sink under a loop that makes it die between Parquet write and checkpoint."""
     rng = random.Random(seed)
@@ -180,9 +211,10 @@ def sink_crash(rate: float = 300, total: float = 60, prob: float = 0.25, seed: i
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("drill", choices=["datanode", "broker", "sink-crash", "all"])
+    ap.add_argument("drill", choices=["datanode", "broker", "sink-crash", "producer-crash", "all"])
     args = ap.parse_args()
-    drills = {"datanode": datanode, "broker": broker, "sink-crash": sink_crash}
+    drills = {"datanode": datanode, "broker": broker, "sink-crash": sink_crash,
+              "producer-crash": producer_crash}
     for name in (drills if args.drill == "all" else [args.drill]):
         say(f"== {name}")
         drills[name]()

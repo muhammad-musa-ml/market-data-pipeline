@@ -97,8 +97,9 @@ scripts/gen_proto.py` to build them outside Docker.
 ## HDFS
 
 Hadoop 3.4.3 (`apache/hadoop:3.4.3`, Java 11), one NameNode, three DataNodes, default replication 3,
-permissions off, user `hadoop`. Failure detection is shortened: heartbeat 1 s, a DataNode is stale after
-5 s and dead after 20 s, and stale nodes are avoided for reads and writes.
+permissions off, user `hadoop`. Failure detection is shortened (heartbeat 1 s, recheck interval 5 s,
+stale interval 5 s, stale nodes avoided for reads and writes), so a killed DataNode is declared dead
+after about 20 s; one kill measured 19.7 s. The defaults would take over ten minutes.
 
 | path | content |
 | --- | --- |
