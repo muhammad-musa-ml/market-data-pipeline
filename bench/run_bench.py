@@ -16,12 +16,21 @@ Stage 2 (needs the analytics profile up, and the sink caught up so market.bars c
     python bench/run_bench.py text2sql --reps 3    # model calls; costs money with the vertex backend
     python bench/run_bench.py spark                # all of the above except text2sql
 
+Stage 3 (needs the serving profile up and prod loaded; see scripts/serving_test.py):
+
+    python bench/run_bench.py serving-latency --reps 5 --n 2000   # request latency at ONE, QUORUM, ALL
+    python bench/run_bench.py serving-load --reps 5               # loader rows/s, Cassandra and MySQL
+    python bench/run_bench.py serving-api --reps 5 --n 1000       # REST latency over both backends
+    python bench/run_bench.py serving-matrix --reps 5             # what works with 0, 1, 2 nodes down
+    python bench/run_bench.py serving                             # all four
+
 Output goes to bench/scratch/ unless --final is given, which writes to
 bench/results/. Each run also writes <name>.meta.json with the machine, the
 commit and the exact command, so a number can be traced back.
 """
 import argparse
 import csv
+import datetime as dt
 import json
 import os
 import platform
@@ -289,14 +298,143 @@ def text2sql(reps: int, backend: str, final: bool) -> None:
                                                  "questions": runs[0]["questions"]})
 
 
+def serving_tools(*cmd: str, timeout: float = 3600) -> subprocess.CompletedProcess:
+    return compose("--profile", "serving-tools", "run", "--rm", "-T", "serving-tools", *cmd,
+                   timeout=timeout, check=False)
+
+
+def serving_meta() -> dict:
+    return {"cluster": "cassandra:5.0.9, 3 nodes, SimpleStrategy RF 3, heap 512M/128M new, 1280m container limit, "
+                       "2 vCPU visible to each JVM", "mysql": "mysql:8.4, buffer pool 128M, 512m limit",
+            "api": "gunicorn 2 workers x 4 threads", "driver": "cassandra-driver 3.30.1, protocol v5"}
+
+
+def json_lines(text: str) -> list[dict]:
+    return [json.loads(ln) for ln in text.splitlines() if ln.startswith("{")]
+
+
+def serving_latency(reps: int, final: bool, n: int, warmup: int) -> None:
+    rows = []
+    for rep in range(1, reps + 1):
+        res = serving_tools("python", "-m", "mdp.bench.serving_latency", "--n", str(n), "--warmup", str(warmup),
+                            "--seed", str(rep))
+        docs = json_lines(res.stdout)
+        if res.returncode != 0 or not docs:
+            raise RuntimeError(f"latency run failed (exit {res.returncode}):\n{res.stdout[-2000:]}\n{res.stderr[-2000:]}")
+        rows += [{"rep": rep, **d} for d in docs]
+        say(f"latency rep {rep}: " + ", ".join(f"{d['consistency']}/{d['op']} p50 {d.get('p50_ms', 'n/a')}"
+                                              for d in docs if d["op"] == "write"))
+    for level in ("ONE", "QUORUM", "ALL"):
+        for op in ("write", "read_row", "read_30_days"):
+            summarize(f"{level} {op} p50 ms", [r["p50_ms"] for r in rows if r["consistency"] == level
+                                               and r["op"] == op and "p50_ms" in r])
+    write_results("serving_latency", rows, final, {**serving_meta(), "requests_per_level": n, "warmup": warmup})
+
+
+def serving_load(reps: int, final: bool, concurrencies=(16, 64, 256)) -> None:
+    rows = []
+    plan = [("cassandra", c) for c in concurrencies] + [("mysql", 64)]
+    for rep in range(1, reps + 1):
+        for backend, conc in plan:
+            # the same number of fresh rows each time: empty the test database first
+            reset = serving_tools("python", "-m", "mdp.serving.init_schema", "--reset-test", "--only", backend,
+                                  timeout=600)
+            if reset.returncode != 0:
+                raise RuntimeError(f"reset failed:\n{reset.stdout}\n{reset.stderr}")
+            res = serving_tools("python", "-m", "mdp.serving.loader", "--backend", backend, "--db", "test",
+                                "--concurrency", str(conc), "--skip-verify", "--json")
+            docs = json_lines(res.stdout)
+            if res.returncode != 0 or not docs:
+                raise RuntimeError(f"loader failed (exit {res.returncode}):\n{res.stdout[-2000:]}\n{res.stderr[-2000:]}")
+            d = docs[-1]
+            rows.append({"rep": rep, "backend": backend, "concurrency": conc, "rows": d["rows"],
+                         "write_seconds": d["write_seconds"], "wall_seconds": d["wall_seconds"],
+                         "rows_per_s": d["rows_per_s"]})
+            say(f"load rep {rep}: {backend} x{conc}: {d['rows_per_s']:.0f} rows/s")
+    for backend, conc in plan:
+        summarize(f"{backend} x{conc} rows/s", [r["rows_per_s"] for r in rows
+                                                if r["backend"] == backend and r["concurrency"] == conc])
+    write_results("loader_throughput", rows, final, serving_meta())
+
+
+def percentile(values: list[float], q: float) -> float:
+    s = sorted(values)
+    return s[max(0, -(-q * len(s) // 100) - 1)]
+
+
+def serving_api(reps: int, final: bool, n: int) -> None:
+    import requests
+
+    urls = {"mysql": "http://127.0.0.1:8400", "cassandra": "http://127.0.0.1:8401"}
+    rows = []
+    for rep in range(1, reps + 1):
+        for backend, url in urls.items():
+            http = requests.Session()
+            tick = "Y" + f"{int(time.time()) % 10**7:07d}"
+            http.post(f"{url}/test/api/companies/{tick}", json={"name": "Bench", "sector": "Bench",
+                                                                   "exchange": "TEST"}).raise_for_status()
+            prod = http.get(f"{url}/prod/api/companies").json()
+            if not prod:
+                raise RuntimeError("prod is empty: load the extract first")
+            read_tick = prod[0]["ticker"]
+
+            def put(i):
+                day = dt.date(2001, 1, 1) + dt.timedelta(days=i)
+                return http.put(f"{url}/test/api/companies/{tick}/records/{day.isoformat()}",
+                                json={"open": 10, "high": 11, "low": 9, "close": 10.5, "volume": i})
+
+            ops = {
+                "put_record": put,
+                "get_company": lambda i: http.get(f"{url}/prod/api/companies/{read_tick}"),
+                "get_30_days": lambda i: http.get(f"{url}/prod/api/companies/{read_tick}/records",
+                                                  params={"start": "2023-11-01", "end": "2023-12-22"}),
+                "get_monthly_all": lambda i: http.get(f"{url}/prod/api/companies/{read_tick}/records/monthly"),
+            }
+            for op, fn in ops.items():
+                for i in range(20):  # warm-up
+                    fn(i)
+                ms = []
+                for i in range(n):
+                    t0 = time.perf_counter()
+                    r = fn(20 + i)
+                    ms.append((time.perf_counter() - t0) * 1000)
+                    if r.status_code >= 300:
+                        raise RuntimeError(f"{backend} {op}: {r.status_code} {r.text[:200]}")
+                rows.append({"rep": rep, "backend": backend, "op": op, "requests": n,
+                             "p50_ms": round(percentile(ms, 50), 3), "p95_ms": round(percentile(ms, 95), 3),
+                             "p99_ms": round(percentile(ms, 99), 3), "max_ms": round(max(ms), 3)})
+            say(f"api rep {rep}: {backend} done")
+    for backend in urls:
+        for op in ("put_record", "get_company", "get_30_days", "get_monthly_all"):
+            summarize(f"{backend} {op} p50 ms", [r["p50_ms"] for r in rows if r["backend"] == backend and r["op"] == op])
+    write_results("serving_api_latency", rows, final,
+                  {**serving_meta(), "client": "requests from the host, one connection, sequential"})
+
+
+def serving_matrix(reps: int, final: bool, attempts: int, mode: str) -> None:
+    import serving_faults
+
+    rows = []
+    for rep in range(1, reps + 1):
+        got = serving_faults.matrix(mode, attempts)
+        rows += [{"rep": rep, **r} for r in got]
+        (out_dir(final) / "availability_matrix.md").write_text(serving_faults.render(got) + "\n", newline="\n")
+    write_results("availability_matrix", rows, final, {**serving_meta(), "kill_mode": mode, "attempts": attempts})
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("which", choices=["producer", "lag", "export", "datanode", "sink-recovery", "all",
-                                      "jobs", "bucketing", "caching", "ml", "text2sql", "spark"])
+                                      "jobs", "bucketing", "caching", "ml", "text2sql", "spark",
+                                      "serving-latency", "serving-load", "serving-api", "serving-matrix", "serving"])
     ap.add_argument("--backend", choices=["vertex", "ollama"], default="vertex", help="text2sql only")
     ap.add_argument("--inflate", type=int, default=1,
                     help="bucketing and caching: stack this many shifted copies of the bars first")
     ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--n", type=int, default=2000, help="serving-latency and serving-api: requests per measurement")
+    ap.add_argument("--warmup", type=int, default=200, help="serving-latency: requests discarded first")
+    ap.add_argument("--attempts", type=int, default=3, help="serving-matrix: calls per operation per state")
+    ap.add_argument("--kill-mode", choices=["crash", "stop"], default="crash", help="serving-matrix")
     ap.add_argument("--rate", type=float, default=100, help="bars/s for the live generator")
     ap.add_argument("--seconds", type=float, default=60, help="length of one lag run")
     ap.add_argument("--outage", type=float, default=10, help="seconds the sink stays down")
@@ -304,7 +442,8 @@ def main() -> int:
     args = ap.parse_args()
 
     todo = {"all": ["producer", "lag", "export", "datanode", "sink-recovery"],
-            "spark": ["jobs", "bucketing", "caching", "ml"]}.get(args.which, [args.which])
+            "spark": ["jobs", "bucketing", "caching", "ml"],
+            "serving": ["serving-latency", "serving-load", "serving-api", "serving-matrix"]}.get(args.which, [args.which])
     for name in todo:
         say(f"== {name}")
         if name == "producer":
@@ -325,6 +464,14 @@ def main() -> int:
             ml(args.reps, args.final)
         elif name == "text2sql":
             text2sql(args.reps, args.backend, args.final)
+        elif name == "serving-latency":
+            serving_latency(args.reps, args.final, args.n, args.warmup)
+        elif name == "serving-load":
+            serving_load(args.reps, args.final)
+        elif name == "serving-api":
+            serving_api(args.reps, args.final, args.n)
+        elif name == "serving-matrix":
+            serving_matrix(args.reps, args.final, args.attempts, args.kill_mode)
         else:
             sink_recovery(args.reps, args.outage, args.rate, args.final)
     return 0
