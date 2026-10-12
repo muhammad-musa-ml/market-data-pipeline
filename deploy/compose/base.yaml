@@ -5,6 +5,8 @@ x-app: &app
     context: .
     dockerfile: deploy/images/app/Dockerfile
   env_file: deploy/env/app.env
+  # a DataNode that is down should fail name lookups in about a second, not eight
+  dns_opt: ["timeout:1", "attempts:1"]
 
 services:
   mysql:

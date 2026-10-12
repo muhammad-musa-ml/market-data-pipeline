@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: deploy/images/app/Dockerfile
     env_file: deploy/env/app.env
+    dns_opt: ["timeout:1", "attempts:1"]
     command: ["python", "-m", "mdp.backfill.server"]
     ports:
       - "127.0.0.1:8320:50051"

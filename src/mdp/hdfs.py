@@ -165,7 +165,7 @@ class WebHdfs:
             except (requests.ConnectionError, requests.Timeout) as exc:
                 bad.append(host)
                 last = f"{host}: {type(exc).__name__}"
-                time.sleep(1.0)
+                time.sleep(0.5)
                 continue
             try:
                 self._check(got, "OPEN", path)
@@ -174,7 +174,7 @@ class WebHdfs:
             except HdfsError as exc:
                 bad.append(host)
                 last = str(exc)
-                time.sleep(1.0)
+                time.sleep(0.5)
                 continue
             return got.content
         raise HdfsError(f"OPEN {path} failed after retries: {last}")
