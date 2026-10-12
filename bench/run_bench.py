@@ -331,29 +331,31 @@ def serving_latency(reps: int, final: bool, n: int, warmup: int) -> None:
     write_results("serving_latency", rows, final, {**serving_meta(), "requests_per_level": n, "warmup": warmup})
 
 
-def serving_load(reps: int, final: bool, concurrencies=(16, 64, 256)) -> None:
+def serving_load(reps: int, final: bool) -> None:
     rows = []
-    plan = [("cassandra", c) for c in concurrencies] + [("mysql", 64)]
+    # (backend, requests in flight, rows per Cassandra batch); MySQL always sends 2000-row executemany chunks
+    plan = [("cassandra", 16, 1), ("cassandra", 64, 1), ("cassandra", 256, 1), ("cassandra", 64, 50),
+            ("cassandra", 256, 50), ("mysql", 64, 1)]
     for rep in range(1, reps + 1):
-        for backend, conc in plan:
+        for backend, conc, batch in plan:
             # the same number of fresh rows each time: empty the test database first
             reset = serving_tools("python", "-m", "mdp.serving.init_schema", "--reset-test", "--only", backend,
                                   timeout=600)
             if reset.returncode != 0:
                 raise RuntimeError(f"reset failed:\n{reset.stdout}\n{reset.stderr}")
             res = serving_tools("python", "-m", "mdp.serving.loader", "--backend", backend, "--db", "test",
-                                "--concurrency", str(conc), "--skip-verify", "--json")
+                                "--concurrency", str(conc), "--batch-size", str(batch), "--skip-verify", "--json")
             docs = json_lines(res.stdout)
             if res.returncode != 0 or not docs:
                 raise RuntimeError(f"loader failed (exit {res.returncode}):\n{res.stdout[-2000:]}\n{res.stderr[-2000:]}")
             d = docs[-1]
-            rows.append({"rep": rep, "backend": backend, "concurrency": conc, "rows": d["rows"],
+            rows.append({"rep": rep, "backend": backend, "concurrency": conc, "batch_size": batch, "rows": d["rows"],
                          "write_seconds": d["write_seconds"], "wall_seconds": d["wall_seconds"],
                          "rows_per_s": d["rows_per_s"]})
-            say(f"load rep {rep}: {backend} x{conc}: {d['rows_per_s']:.0f} rows/s")
-    for backend, conc in plan:
-        summarize(f"{backend} x{conc} rows/s", [r["rows_per_s"] for r in rows
-                                                if r["backend"] == backend and r["concurrency"] == conc])
+            say(f"load rep {rep}: {backend} x{conc} batch {batch}: {d['rows_per_s']:.0f} rows/s")
+    for backend, conc, batch in plan:
+        summarize(f"{backend} x{conc} batch {batch} rows/s",
+                  [r["rows_per_s"] for r in rows if (r["backend"], r["concurrency"], r["batch_size"]) == (backend, conc, batch)])
     write_results("loader_throughput", rows, final, serving_meta())
 
 

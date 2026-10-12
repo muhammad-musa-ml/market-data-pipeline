@@ -101,3 +101,52 @@ def test_other_errors_are_not_swallowed():
     session.error = ValueError("bug")
     with pytest.raises(ValueError):
         s.get_company("A")
+
+
+def rows_for(*counts: tuple[str, int]):
+    return [(t, bar(f"2024-01-{d + 1:02d}")) for t, n in counts for d in range(n)]
+
+
+def test_chunks_never_cross_a_ticker_or_exceed_the_size():
+    from mdp.serving.cassandra_store import same_partition_chunks
+    rows = rows_for(("A", 5), ("B", 1), ("C", 7))
+    chunks = same_partition_chunks(rows, 3)
+    assert [len(c) for c in chunks] == [3, 2, 1, 3, 3, 1]
+    assert all(len({t for t, _ in c}) == 1 for c in chunks)
+    assert [r for c in chunks for r in c] == rows  # nothing lost or reordered
+    assert same_partition_chunks([], 3) == []
+
+
+class RecordingBatch:
+    """Stands in for BatchStatement, which only accepts statements the driver itself prepared."""
+
+    def __init__(self, batch_type, consistency_level):
+        self.batch_type, self.consistency_level, self.added = batch_type, consistency_level, []
+
+    def add(self, stmt, params):
+        self.added.append((stmt, params))
+
+
+def test_batched_upsert_sends_unlogged_single_partition_batches_at_the_store_consistency(monkeypatch):
+    from cassandra.query import BatchType
+    from mdp.serving import cassandra_store
+    sent = []
+    monkeypatch.setattr(cassandra_store, "BatchStatement", RecordingBatch)
+    monkeypatch.setattr(cassandra_store, "execute_concurrent",
+                        lambda session, pairs, concurrency: sent.extend(b for b, _ in pairs))
+    s, _ = store(ConsistencyLevel.QUORUM)
+    s.upsert_bars(rows_for(("A", 5), ("B", 2)), concurrency=8, batch_size=2)
+    assert [len(b.added) for b in sent] == [2, 2, 1, 2]
+    assert all(b.batch_type == BatchType.UNLOGGED and b.consistency_level == ConsistencyLevel.QUORUM for b in sent)
+    assert all(stmt is s._put for b in sent for stmt, _ in b.added)
+    assert [{p[0] for _, p in b.added} for b in sent] == [{"A"}, {"A"}, {"A"}, {"B"}]
+
+
+def test_batch_size_one_means_one_statement_per_row(monkeypatch):
+    from mdp.serving import cassandra_store
+    calls = []
+    monkeypatch.setattr(cassandra_store, "execute_concurrent_with_args",
+                        lambda session, stmt, args, concurrency: calls.append((stmt, len(args), concurrency)))
+    s, session = store()
+    s.upsert_bars(rows_for(("A", 4)), concurrency=16, batch_size=1)
+    assert calls == [(s._put, 4, 16)]

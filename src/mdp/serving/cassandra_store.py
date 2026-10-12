@@ -6,7 +6,8 @@ from cassandra import (
     WriteFailure, WriteTimeout,
 )
 from cassandra.cluster import NoHostAvailable, Session
-from cassandra.concurrent import execute_concurrent_with_args
+from cassandra.concurrent import execute_concurrent, execute_concurrent_with_args
+from cassandra.query import BatchStatement, BatchType
 
 from mdp.serving.models import FIRST_DAY, LAST_DAY, Bar, Company
 from mdp.serving.store import Conflict, Unavailable
@@ -91,6 +92,27 @@ class CassandraStore:
             concurrency=16)
 
     @translate
-    def upsert_bars(self, rows: Sequence[tuple[str, Bar]], concurrency: int = 64) -> None:
-        args = [(t, b.trade_date, b.open, b.high, b.low, b.close, b.volume) for t, b in rows]
-        execute_concurrent_with_args(self.session, self._put, args, concurrency=concurrency)
+    def upsert_bars(self, rows: Sequence[tuple[str, Bar]], concurrency: int = 64, batch_size: int = 1) -> None:
+        """`concurrency` requests in flight; with batch_size > 1 each request is an unlogged batch of
+        rows from one partition, which the coordinator applies as a single mutation."""
+        if batch_size <= 1:
+            args = [(t, b.trade_date, b.open, b.high, b.low, b.close, b.volume) for t, b in rows]
+            execute_concurrent_with_args(self.session, self._put, args, concurrency=concurrency)
+            return
+        batches = []
+        for group in same_partition_chunks(rows, batch_size):
+            batch = BatchStatement(batch_type=BatchType.UNLOGGED, consistency_level=self._put.consistency_level)
+            for t, b in group:
+                batch.add(self._put, (t, b.trade_date, b.open, b.high, b.low, b.close, b.volume))
+            batches.append((batch, ()))
+        execute_concurrent(self.session, batches, concurrency=concurrency)
+
+
+def same_partition_chunks(rows: Sequence[tuple[str, Bar]], size: int) -> list[Sequence[tuple[str, Bar]]]:
+    """Runs of at most `size` consecutive rows that share a ticker (a batch across partitions is slow)."""
+    out, start = [], 0
+    for i in range(1, len(rows) + 1):
+        if i == len(rows) or rows[i][0] != rows[start][0] or i - start >= size:
+            out.append(rows[start:i])
+            start = i
+    return out

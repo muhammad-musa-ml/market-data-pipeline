@@ -85,7 +85,7 @@ class MySQLStore:
                 "ON DUPLICATE KEY UPDATE name = VALUES(name), sector = VALUES(sector), exchange = VALUES(exchange)",
                 [(c.ticker, c.name, c.sector, c.exchange) for c in companies])
 
-    def upsert_bars(self, rows: Sequence[tuple[str, Bar]], concurrency: int = 64) -> None:
+    def upsert_bars(self, rows: Sequence[tuple[str, Bar]], concurrency: int = 64, batch_size: int = 1) -> None:
         args = [(t, b.trade_date, b.open, b.high, b.low, b.close, b.volume) for t, b in rows]
         with self._cursor() as cur:
             for i in range(0, len(args), INSERT_CHUNK):

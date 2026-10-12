@@ -47,7 +47,7 @@ class MemoryStore:
             self.companies[c.ticker] = c
             self.rows.setdefault(c.ticker, {})
 
-    def upsert_bars(self, rows, concurrency=64):
+    def upsert_bars(self, rows, concurrency=64, batch_size=1):
         for t, b in rows:
             self.rows[t][b.trade_date] = b
 
@@ -95,7 +95,7 @@ class FakeSession:
         self.async_calls = 0
 
     def prepare(self, cql):
-        p = Prepared(cql=cql, consistency_level=None, serial_consistency_level=None)
+        p = Prepared(cql=cql, query_string=cql, consistency_level=None, serial_consistency_level=None)
         self.prepared.append(p)
         return p
 

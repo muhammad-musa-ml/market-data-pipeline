@@ -1,6 +1,6 @@
 """Load the stage 2 serving extract from HDFS into a backend.
 
-    python -m mdp.serving.loader [--backend cassandra|mysql] [--db prod|test] [--concurrency 64]
+    python -m mdp.serving.loader [--backend cassandra|mysql] [--db prod|test] [--concurrency 64] [--batch-size 50]
 
 Reads /market/serving/_manifest.json, refuses to continue if the daily_bars files do not add up
 to the row count it names, writes companies and then bars as upserts (so running it again
@@ -76,7 +76,7 @@ def write_with_retry(fn, *args) -> None:
             time.sleep(2 * (attempt + 1))
 
 
-def load(store: Store, hdfs, concurrency: int = 64, log=print) -> dict:
+def load(store: Store, hdfs, concurrency: int = 64, log=print, batch_size: int = 50) -> dict:
     manifest = read_manifest(hdfs)
     files = parquet_files(hdfs, "daily_bars")
     rows = tickers = 0
@@ -88,7 +88,7 @@ def load(store: Store, hdfs, concurrency: int = 64, log=print) -> dict:
         bars = bars_from(table)
         w0 = time.monotonic()
         write_with_retry(store.upsert_companies, companies)
-        write_with_retry(store.upsert_bars, bars, concurrency)
+        write_with_retry(store.upsert_bars, bars, concurrency, batch_size)
         write_seconds += time.monotonic() - w0
         rows += len(bars)
         tickers += len(companies)
@@ -136,7 +136,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m mdp.serving.loader")
     ap.add_argument("--backend", choices=BACKENDS, default="cassandra")
     ap.add_argument("--db", choices=["prod", "test"], default="prod")
-    ap.add_argument("--concurrency", type=int, default=64)
+    ap.add_argument("--concurrency", type=int, default=64, help="requests in flight")
+    ap.add_argument("--batch-size", type=int, default=50,
+                    help="Cassandra: rows per unlogged single-partition batch (1 = one request per row)")
     ap.add_argument("--skip-verify", action="store_true")
     ap.add_argument("--json", action="store_true", help="print the result as one JSON line")
     args = ap.parse_args(argv)
@@ -146,8 +148,8 @@ def main(argv: list[str] | None = None) -> int:
     hdfs.wait_ready(cfg.hdfs_min_datanodes)
     store = open_store(args.backend, args.db)
     log = (lambda *_: None) if args.json else print
-    result = load(store, hdfs, args.concurrency, log)
-    result.update(backend=args.backend, db=args.db, concurrency=args.concurrency)
+    result = load(store, hdfs, args.concurrency, log, args.batch_size)
+    result.update(backend=args.backend, db=args.db, concurrency=args.concurrency, batch_size=args.batch_size)
     if not args.skip_verify:
         problems = verify(store, hdfs)
         result["verify_problems"] = problems
