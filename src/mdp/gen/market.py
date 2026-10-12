@@ -4,6 +4,13 @@ Each day's returns come from an RNG seeded with (seed, day_index), so the series
 does not depend on how it was chunked or whether the loader was restarted: the
 live generator resumes from the database and produces the same bars an
 uninterrupted run would have.
+
+Volatility clusters: a market-wide and a per-symbol log-volatility follow
+AR(1) processes that are also pure functions of (seed, day_index), and they scale
+the day's shocks. Calm and turbulent stretches therefore last weeks, which makes
+the next days' volatility partly predictable from recent returns and volume.
+Volume also rises with the symbol's volatility regime. Universe(...,
+vol_clustering=False) gives the original constant-volatility series.
 """
 import datetime as dt
 from dataclasses import dataclass
@@ -25,6 +32,11 @@ START_DATE = dt.date(2014, 1, 6)  # a Monday
 
 MARKET_VOL = 0.0075
 SECTOR_VOL = 0.0055
+
+VOL_PERSISTENCE = 0.97  # daily AR(1) coefficient of log volatility, half-life about 23 days
+VOL_OF_VOL = 0.40       # stationary standard deviation of log volatility
+VOLUME_VOL_LINK = 0.6   # volume grows as exp(link * log volatility multiplier)
+_VOL_STREAM = 0x70B1
 
 
 @dataclass(frozen=True)
@@ -98,9 +110,13 @@ class DayBars:
 
 
 class Universe:
-    def __init__(self, specs: list[SymbolSpec], seed: int):
+    def __init__(self, specs: list[SymbolSpec], seed: int, vol_clustering: bool = True):
         self.specs = specs
         self.seed = seed
+        self.vol_clustering = vol_clustering
+        # column 0 is the market-wide factor, columns 1.. are the symbols
+        self._latent = np.zeros((0, len(specs) + 1))
+        self._filled = 0
         sectors = sorted({s.sector for s in specs})
         self._sector_idx = np.array([sectors.index(s.sector) for s in specs])
         self._n_sectors = len(sectors)
@@ -113,6 +129,26 @@ class Universe:
     def __len__(self) -> int:
         return len(self.specs)
 
+    def log_vol(self, day_index: int) -> np.ndarray:
+        """Log volatility multipliers for one day: [market, symbol 1, symbol 2, ...].
+
+        The AR(1) path is extended on demand from day 0, so asking for day d
+        gives the same answer whatever was asked before.
+        """
+        if not self.vol_clustering:
+            return np.zeros(len(self) + 1)
+        if day_index >= self._filled:
+            if day_index >= len(self._latent):
+                grown = np.zeros((max(2 * len(self._latent), day_index + 1, 4096), len(self) + 1))
+                grown[: self._filled] = self._latent[: self._filled]
+                self._latent = grown
+            phi, step = VOL_PERSISTENCE, np.sqrt(1.0 - VOL_PERSISTENCE ** 2)
+            for d in range(self._filled, day_index + 1):
+                eta = np.random.default_rng([self.seed, _VOL_STREAM, d]).normal(size=len(self) + 1)
+                self._latent[d] = eta if d == 0 else phi * self._latent[d - 1] + step * eta
+            self._filled = day_index + 1
+        return VOL_OF_VOL * self._latent[day_index] - 0.5 * VOL_OF_VOL ** 2
+
     def initial_close(self) -> np.ndarray:
         return np.array([s.start_price for s in self.specs])
 
@@ -124,6 +160,9 @@ class Universe:
         eps = rng.normal(size=n)
         z_open, z_hi, z_lo, z_vol = rng.normal(size=(4, n))
 
+        lv = self.log_vol(day_index)
+        market = market * np.exp(lv[0])
+        eps = eps * np.exp(lv[1:])
         ret = self._drift + self._bm * market + self._bs * sector[self._sector_idx] + self._idio * eps
         close = np.maximum(np.round(prev_close * np.exp(ret), 4), 1.0)
         open_ = np.maximum(np.round(prev_close * np.exp(0.35 * ret + 0.003 * z_open), 4), 1.0)
@@ -131,5 +170,6 @@ class Universe:
         bottom = np.minimum(open_, close)
         high = np.round(top * np.exp(np.abs(0.004 * z_hi)), 4)
         low = np.maximum(np.round(bottom * np.exp(-np.abs(0.004 * z_lo)), 4), 1.0)
-        volume = np.maximum(1, (self._base_vol * np.exp(0.25 * z_vol + 12.0 * np.abs(ret))).astype(np.int64))
+        link = VOLUME_VOL_LINK * lv[1:] if self.vol_clustering else 0.0
+        volume = np.maximum(1, (self._base_vol * np.exp(0.25 * z_vol + 12.0 * np.abs(ret) + link)).astype(np.int64))
         return DayBars(open_, high, low, close, volume)

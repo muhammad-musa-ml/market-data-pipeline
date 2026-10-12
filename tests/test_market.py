@@ -79,3 +79,57 @@ def test_calendar_skips_weekends():
     assert market.trading_date(5) == dt.date(2014, 1, 13)
     assert all(market.trading_date(i).weekday() < 5 for i in range(300))
     assert market.day_index_of(market.trading_date(123)) == 123
+
+
+def abs_returns(vol_clustering: bool, n: int = 20, days: int = 1500, seed: int = 3):
+    uni = market.Universe(market.make_symbols(n, seed), seed, vol_clustering=vol_clustering)
+    closes = [uni.initial_close()]
+    volumes = []
+    for d in range(days):
+        b = uni.next_day(closes[-1], d)
+        closes.append(b.close)
+        volumes.append(b.volume)
+    rets = np.diff(np.log(np.vstack(closes)), axis=0)
+    return np.abs(rets), np.vstack(volumes)
+
+
+def lag1_autocorr(x: np.ndarray) -> float:
+    a, b = x[:-1].ravel(), x[1:].ravel()
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def test_volatility_clusters_only_when_switched_on():
+    on, _ = abs_returns(True)
+    off, _ = abs_returns(False)
+    assert lag1_autocorr(on) > 0.1
+    assert abs(lag1_autocorr(off)) < 0.05
+
+
+def test_without_clustering_the_series_is_the_original_one():
+    # the constants come from the generator as it was before volatility clustering existed
+    uni = market.Universe(market.make_symbols(12, 5), 5, vol_clustering=False)
+    prev = uni.initial_close()
+    for d in range(40):
+        b = uni.next_day(prev, d)
+        prev = b.close
+    assert round(float(b.close.sum()), 4) == 1124.1287
+    assert int(b.volume.sum()) == 17135688
+    assert round(float(b.high.sum()), 4) == 1126.9557
+
+
+def test_log_vol_does_not_depend_on_the_order_of_requests():
+    a = market.Universe(market.make_symbols(8, 4), 4)
+    b = market.Universe(market.make_symbols(8, 4), 4)
+    far = a.log_vol(5000)
+    for d in range(0, 5001, 7):
+        b.log_vol(d)
+    assert np.array_equal(far, b.log_vol(5000))
+    assert not np.array_equal(a.log_vol(10), a.log_vol(11))
+
+
+def test_volume_follows_the_volatility_regime():
+    uni = market.Universe(market.make_symbols(20, 3), 3)
+    lv = np.vstack([uni.log_vol(d)[1:] for d in range(1500)])
+    _, vol = abs_returns(True)
+    ratio = np.log(vol / np.array([s.base_volume for s in uni.specs]))
+    assert np.corrcoef(lv.ravel(), ratio.ravel())[0, 1] > 0.3

@@ -12,6 +12,9 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m mdp.gen")
     p.add_argument("--seed", type=int, default=int(os.environ.get("GEN_SEED", 7)))
     p.add_argument("--symbols", type=int, default=int(os.environ.get("GEN_SYMBOLS", 50)))
+    p.add_argument("--no-vol-clustering", action="store_true",
+                   default=os.environ.get("GEN_VOL_CLUSTERING", "1") == "0",
+                   help="constant volatility, as before stage 2 (also GEN_VOL_CLUSTERING=0)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     h = sub.add_parser("history", help="load trading days up to --days (idempotent)")
@@ -26,7 +29,8 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
     cfg = Settings.from_env()
-    uni = market.Universe(market.make_symbols(args.symbols, args.seed), args.seed)
+    uni = market.Universe(market.make_symbols(args.symbols, args.seed), args.seed,
+                          vol_clustering=not args.no_vol_clustering)
     conn = db.connect(cfg)
     db.apply_schema(conn)
 
