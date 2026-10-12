@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package mdp.v1;
+
+// One daily bar, as it travels through Kafka. Field names double as the
+// column names of the Parquet batch files the sink writes.
+message Bar {
+  int64 id = 1;               // bars.id in MySQL
+  int32 symbol_id = 2;
+  string ticker = 3;
+  string trade_date = 4;      // YYYY-MM-DD
+  double open = 5;
+  double high = 6;
+  double low = 7;
+  double close = 8;
+  int64 volume = 9;
+  int64 inserted_at_us = 10;  // MySQL insert time, microseconds since the epoch
+}
+
+// Written to the progress topic in the same Kafka transaction as the bars it
+// covers, so a restarted producer knows exactly where to resume.
+message ProducerProgress {
+  int64 last_id = 1;
+}

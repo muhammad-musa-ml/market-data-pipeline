@@ -1,0 +1,78 @@
+# MySQL and the HDFS cluster. Everything else in the stack depends on these.
+services:
+  mysql:
+    image: mysql:8.4
+    command: >
+      --innodb-buffer-pool-size=128M
+      --max-connections=60
+      --performance-schema=OFF
+      --skip-log-bin
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MDP_MYSQL_ROOT_PASSWORD:-mdp-root}
+      MYSQL_DATABASE: market
+      MYSQL_USER: mdp
+      MYSQL_PASSWORD: mdp
+    ports:
+      - "127.0.0.1:8300:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u mdp -pmdp --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  namenode:
+    build: deploy/images/hdfs
+    image: mdp-hdfs:local
+    command: ["namenode"]
+    hostname: namenode
+    environment:
+      HADOOP_HEAPSIZE_MAX: 320m
+      HADOOP_OPTS: -XX:+UseSerialGC
+    ports:
+      - "127.0.0.1:8310:9870"
+    volumes:
+      - namenode-data:/data/nn
+    mem_limit: 640m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:9870/webhdfs/v1/?op=GETFILESTATUS' > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 15s
+
+  datanode1: &datanode
+    image: mdp-hdfs:local
+    command: ["datanode"]
+    hostname: datanode1
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      HADOOP_HEAPSIZE_MAX: 192m
+      HADOOP_OPTS: -XX:+UseSerialGC
+    volumes:
+      - datanode1-data:/data/dn
+    mem_limit: 448m
+
+  datanode2:
+    <<: *datanode
+    hostname: datanode2
+    volumes:
+      - datanode2-data:/data/dn
+
+  datanode3:
+    <<: *datanode
+    hostname: datanode3
+    volumes:
+      - datanode3-data:/data/dn
+
+volumes:
+  mysql-data:
+  namenode-data:
+  datanode1-data:
+  datanode2-data:
+  datanode3-data:

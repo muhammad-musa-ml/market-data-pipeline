@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package mdp.v1;
+
+service Backfill {
+  // Run a JOIN against the symbols lookup table and write the result to a
+  // single Parquet file on HDFS (replication 2, 1 MiB blocks).
+  rpc ExportBars(ExportBarsRequest) returns (ExportBarsReply);
+
+  // How many blocks of an HDFS file each DataNode holds, from WebHDFS.
+  rpc BlockDistribution(BlockDistributionRequest) returns (BlockDistributionReply);
+
+  // Per-symbol aggregate backed by a replication-1 cache file.
+  rpc SymbolSummary(SymbolSummaryRequest) returns (SymbolSummaryReply);
+}
+
+enum Dimension {
+  DIMENSION_UNSPECIFIED = 0;
+  DIMENSION_SECTOR = 1;
+  DIMENSION_EXCHANGE = 2;
+}
+
+message ExportBarsRequest {
+  Dimension dimension = 1;
+  string name = 2;       // sector or exchange name, e.g. "Energy" or "NYSE"
+  string dest_path = 3;  // HDFS path of the Parquet file to write
+}
+
+message ExportBarsReply {
+  int64 rows = 1;
+  string path = 2;
+  int64 bytes = 3;
+  int32 replication = 4;
+  int64 block_size = 5;
+}
+
+message BlockDistributionRequest {
+  string path = 1;
+}
+
+message DatanodeBlocks {
+  string datanode = 1;
+  int32 blocks = 2;
+}
+
+message BlockDistributionReply {
+  int32 total_blocks = 1;
+  int32 replication = 2;
+  int64 length = 3;
+  int64 block_size = 4;
+  repeated DatanodeBlocks datanodes = 5;
+}
+
+enum CacheOutcome {
+  CACHE_OUTCOME_UNSPECIFIED = 0;
+  CACHE_CREATED = 1;
+  CACHE_REUSED = 2;
+  CACHE_RECREATED = 3;
+}
+
+message SymbolSummaryRequest {
+  string ticker = 1;
+  string source_path = 2;  // the big file written by ExportBars
+}
+
+message SymbolSummaryReply {
+  string ticker = 1;
+  int64 rows = 2;
+  double avg_close = 3;
+  double vwap = 4;
+  string first_date = 5;
+  string last_date = 6;
+  CacheOutcome cache = 7;
+  string cache_path = 8;
+}

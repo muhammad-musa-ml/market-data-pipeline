@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+*.egg-info/
+
+# protobuf bindings are built from proto/ (scripts/gen_proto.py)
+src/mdp/v1/*_pb2.py
+src/mdp/v1/*_pb2.pyi
+src/mdp/v1/*_pb2_grpc.py
+
+# raw benchmark scratch; the summarised CSVs in bench/results are committed
+bench/scratch/

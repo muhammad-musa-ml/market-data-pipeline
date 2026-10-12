@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<configuration>
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/nn</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/dn</value>
+  </property>
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+  <property>
+    <name>dfs.permissions.enabled</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+    <value>false</value>
+  </property>
+
+  <!-- Failure detection is tightened so a killed DataNode is noticed in
+       seconds instead of the default ten and a half minutes. A DataNode is
+       stale after 5 s and dead after 2 * 5 s + 10 * 1 s = 20 s. -->
+  <property>
+    <name>dfs.heartbeat.interval</name>
+    <value>1</value>
+  </property>
+  <property>
+    <name>dfs.namenode.heartbeat.recheck-interval</name>
+    <value>5000</value>
+  </property>
+  <property>
+    <name>dfs.namenode.stale.datanode.interval</name>
+    <value>5000</value>
+  </property>
+  <property>
+    <name>dfs.namenode.avoid.read.stale.datanode</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.namenode.avoid.write.stale.datanode</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.namenode.safemode.extension</name>
+    <value>2000</value>
+  </property>
+</configuration>

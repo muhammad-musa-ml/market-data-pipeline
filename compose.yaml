@@ -1,0 +1,5 @@
+name: market-data-pipeline
+
+include:
+  - path: deploy/compose/base.yaml
+    project_directory: .
