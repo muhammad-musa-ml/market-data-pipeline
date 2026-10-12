@@ -1,4 +1,5 @@
 import datetime as dt
+from types import SimpleNamespace
 
 from mdp.serving.models import Bar, Company
 from mdp.serving.store import Conflict, Unavailable
@@ -53,3 +54,71 @@ class MemoryStore:
 
 def bar(day: str, close: float = 10.0, volume: int = 100, spread: float = 1.0) -> Bar:
     return Bar(dt.date.fromisoformat(day), close, close + spread, close - spread, close, volume)
+
+
+class Prepared(SimpleNamespace):
+    pass
+
+
+class FakeResult:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def one(self):
+        return self.rows[0] if self.rows else None
+
+    def __iter__(self):
+        return iter(self.rows)
+
+
+class FakeFuture:
+    """Just enough of ResponseFuture for cassandra.concurrent."""
+
+    def __init__(self, error):
+        self.error = error
+
+    def add_callbacks(self, callback, errback, callback_args=(), callback_kwargs=None, errback_args=(),
+                      errback_kwargs=None):
+        if self.error:
+            errback(self.error, *errback_args, **(errback_kwargs or {}))
+        else:
+            callback([], *callback_args, **(callback_kwargs or {}))
+
+
+class FakeSession:
+    def __init__(self):
+        self.prepared: list[Prepared] = []
+        self.executed: list[tuple] = []
+        self.results: list = []
+        self.error: Exception | None = None
+        self.fail_after: int | None = None  # concurrent executes allowed before `error` applies
+        self.async_calls = 0
+
+    def prepare(self, cql):
+        p = Prepared(cql=cql, consistency_level=None, serial_consistency_level=None)
+        self.prepared.append(p)
+        return p
+
+    def execute(self, stmt, params=()):
+        if self.error:
+            raise self.error
+        self.executed.append((stmt, params))
+        return FakeResult(self.results)
+
+    def execute_async(self, stmt, params=(), *args, **kwargs):
+        self.executed.append((stmt, params))
+        self.async_calls += 1
+        failing = self.error is not None and (self.fail_after is None or self.async_calls > self.fail_after)
+        return FakeFuture(self.error if failing else None)
+
+
+def concurrent_stand_in(session):
+    """Replaces cassandra.concurrent.execute_concurrent_with_args, whose result handling needs a real
+    driver future: runs each parameter set through the fake session and raises like raise_on_first_error."""
+    def run(sess, stmt, args, concurrency=100):
+        for params in args:
+            session.async_calls += 1
+            if session.error is not None and (session.fail_after is None or session.async_calls > session.fail_after):
+                raise session.error
+            session.executed.append((stmt, params))
+    return run

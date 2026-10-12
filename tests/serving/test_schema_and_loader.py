@@ -53,7 +53,7 @@ def test_daily_bars_is_partitioned_by_ticker_and_clustered_newest_first_with_sta
 
 def test_ticks_partition_is_bounded_by_day_and_the_key_includes_the_producer():
     ddl = table("ticks")
-    assert "PRIMARY KEY ((ticker, day), ts, producer)" in ddl
+    assert "PRIMARY KEY ((ticker, day), ts_us, producer)" in ddl
 
 
 def test_every_table_the_api_reads_has_a_matching_column_in_the_extract_mapping():

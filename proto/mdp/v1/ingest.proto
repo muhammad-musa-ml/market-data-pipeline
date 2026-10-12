@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package mdp.v1;
+
+// Upload path for producers that must always be able to write. Writes are acknowledged by a
+// single replica (consistency ONE); the read is served only when all three replicas answer
+// (consistency ALL), so it fails rather than return something that might be stale.
+//
+// Every call takes an optional "x-keyspace" metadata entry, "prod" (default) or "test".
+service Ingest {
+  rpc PutTick(Tick) returns (PutReply);
+
+  // Client-streaming bulk upload. The reply counts ticks that were acknowledged; if the call
+  // fails part way, send the whole batch again (the same tick overwrites itself).
+  rpc PutTicks(stream Tick) returns (PutReply);
+
+  rpc GetTicks(GetTicksRequest) returns (GetTicksReply);
+}
+
+message Tick {
+  string ticker = 1;
+  int64 ts_us = 2;      // microseconds since the epoch
+  double price = 3;
+  int64 size = 4;
+  string producer = 5;  // who sent it; part of the key
+}
+
+message PutReply {
+  int64 accepted = 1;
+}
+
+message GetTicksRequest {
+  string ticker = 1;
+  string day = 2;   // YYYY-MM-DD, UTC
+  int32 limit = 3;  // 0 means 1000; newest first
+}
+
+message GetTicksReply {
+  repeated Tick ticks = 1;
+}

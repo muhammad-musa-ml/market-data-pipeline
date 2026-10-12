@@ -23,15 +23,16 @@ CREATE TABLE IF NOT EXISTS ${keyspace}.daily_bars (
 
 -- Raw ticks from the gRPC ingest service. One partition per ticker and UTC day keeps a partition
 -- bounded; the producer id in the key makes a retried upload overwrite itself instead of doubling.
+-- The time is kept as microseconds in a bigint: a timestamp column stops at milliseconds.
 CREATE TABLE IF NOT EXISTS ${keyspace}.ticks (
   ticker text,
   day date,
-  ts timestamp,
+  ts_us bigint,
   producer text,
   price double,
   size bigint,
-  PRIMARY KEY ((ticker, day), ts, producer)
-) WITH CLUSTERING ORDER BY (ts DESC, producer ASC);
+  PRIMARY KEY ((ticker, day), ts_us, producer)
+) WITH CLUSTERING ORDER BY (ts_us DESC, producer ASC);
 
 -- Newest bar per ticker, kept current from Kafka by the quotes consumer.
 CREATE TABLE IF NOT EXISTS ${keyspace}.latest_quote (
