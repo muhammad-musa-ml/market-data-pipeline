@@ -6,5 +6,5 @@ requires-python = ">=3.11"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-markers = ["integration: needs the docker stack"]
+markers = ["integration: needs the docker stack", "spark: needs pyspark and a JDK"]
 addopts = "-q"
