@@ -5,6 +5,8 @@
     python bench/run_bench.py export --reps 5
     python bench/run_bench.py datanode --reps 5
     python bench/run_bench.py sink-recovery --reps 5 --outage 10
+    python bench/run_bench.py drills --reps 3       # broker kill and sink crash, duplicate/gap counts
+    python bench/run_bench.py kafka-init-cold --reps 5   # does kafka-init succeed first try on a fresh cluster
     python bench/run_bench.py all
 
 Stage 2 (needs the analytics profile up, and the sink caught up so market.bars can be built):
@@ -178,6 +180,46 @@ def sink_recovery(reps: int, outage: float, rate: float, final: bool) -> None:
     summarize("first batch after restart (s)", [r["first_batch_s"] for r in rows if r["first_batch_s"]])
     summarize("caught up (s)", [r["caught_up_s"] for r in rows if r["caught_up_s"]])
     write_results("sink_restart_recovery", rows, final)
+
+
+def kafka_init_cold(reps: int, final: bool) -> None:
+    """Remove every volume, start only the three brokers and kafka-init, and see whether it exits 0."""
+    rows = []
+    for rep in range(1, reps + 1):
+        compose("--profile", "live", "--profile", "tools", "--profile", "debug", "--profile", "analytics",
+                "--profile", "serving", "--profile", "serving-tools", "--profile", "serving-quotes",
+                "down", "-v", timeout=600)
+        compose("up", "-d", "kafka-1", "kafka-2", "kafka-3", "kafka-init", timeout=900, check=False)
+        code = stack.wait_for(lambda: stack.docker(
+            "inspect", "-f", "{{.State.Status}} {{.State.ExitCode}}", stack.container_id("kafka-init")
+        ).stdout.strip().startswith("exited") and stack.docker(
+            "inspect", "-f", "{{.State.ExitCode}}", stack.container_id("kafka-init")).stdout.strip() or None,
+            300, what="kafka-init to finish")
+        tail = compose("logs", "--no-log-prefix", "kafka-init", check=False).stdout.strip().splitlines()[-1:]
+        rows.append({"rep": rep, "exit_code": int(code), "first_try_ok": int(code) == 0,
+                     "last_log_line": tail[0] if tail else ""})
+        say(f"kafka-init cold start {rep}: exit {code}")
+    compose("down", "-v", timeout=600, check=False)
+    ok = sum(r["first_try_ok"] for r in rows)
+    say(f"kafka-init succeeded first try {ok} of {reps} times")
+    write_results("kafka_init_cold", rows, final)
+
+
+def drills(reps: int, final: bool) -> None:
+    """Run the broker-kill and sink-crash drills; each ends with the HDFS-vs-MySQL checker."""
+    rows = []
+    for rep in range(1, reps + 1):
+        for name, fn in (("broker-kill", faults.broker), ("sink-crash", faults.sink_crash)):
+            r = fn()
+            c = r["check"]
+            rows.append({"rep": rep, "drill": name, "bars_inserted": r["bars_inserted"],
+                         "expected_rows": c["expected"], "rows_on_hdfs": c["found_rows"],
+                         "duplicates": c["duplicate_count"], "gaps": c["gap_count"],
+                         "value_mismatches": c["mismatch_count"], "ok": c["ok"],
+                         "detail": json.dumps({k: v for k, v in r.items() if k not in ("check", "bars_inserted")})})
+            say(f"{name} rep {rep}: {c['found_rows']} of {c['expected']} rows, {c['duplicate_count']} duplicates, "
+                f"{c['gap_count']} gaps")
+    write_results("fault_drills", rows, final)
 
 
 def spark_job(job: str, *args: str, timeout: float = 3600) -> dict:
@@ -427,7 +469,7 @@ def serving_matrix(reps: int, final: bool, attempts: int, mode: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("which", choices=["producer", "lag", "export", "datanode", "sink-recovery", "all",
-                                      "jobs", "bucketing", "caching", "ml", "text2sql", "spark",
+                                      "jobs", "bucketing", "caching", "ml", "text2sql", "spark", "drills", "kafka-init-cold",
                                       "serving-latency", "serving-load", "serving-api", "serving-matrix", "serving"])
     ap.add_argument("--backend", choices=["vertex", "ollama"], default="vertex", help="text2sql only")
     ap.add_argument("--inflate", type=int, default=1,
@@ -456,6 +498,10 @@ def main() -> int:
             export(args.reps, args.final)
         elif name == "datanode":
             datanode(args.reps, args.final)
+        elif name == "kafka-init-cold":
+            kafka_init_cold(args.reps, args.final)
+        elif name == "drills":
+            drills(args.reps, args.final)
         elif name == "jobs":
             jobs(args.reps, args.final)
         elif name == "bucketing":
