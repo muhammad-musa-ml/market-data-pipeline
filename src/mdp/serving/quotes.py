@@ -1,6 +1,7 @@
 """Keep the latest_quote table current from the bars topic.
 
-    python -m mdp.serving.quotes [--db prod] [--from-beginning]
+    python -m mdp.serving.quotes [--db prod] [--from-beginning] [--exit-when-idle SECONDS]
+    python -m mdp.serving.quotes --check [--db prod]
 
 A consumer in group mdp-quotes reads committed messages only (the producer writes in transactions),
 keeps the newest bar per ticker of each poll, and writes it at QUORUM before committing offsets. The
@@ -92,13 +93,36 @@ def run(db: str, from_beginning: bool, max_idle: float = 0.0) -> int:
     return applied
 
 
+def check(db: str) -> list[str]:
+    """Compare latest_quote with the newest row of daily_bars for every ticker that has a quote."""
+    session = cluster.connect(ServingSettings.from_env(), wait=60)
+    problems = []
+    quotes = list(session.execute(f"SELECT ticker, trade_date, close, volume, bar_id FROM {db}.latest_quote"))
+    if not quotes:
+        problems.append("latest_quote is empty")
+    for q in quotes:
+        newest = session.execute(f"SELECT trade_date, close, volume FROM {db}.daily_bars WHERE ticker = %s LIMIT 1",
+                                 (q.ticker,)).one()
+        if newest is None or (newest.trade_date, newest.close, newest.volume) != (q.trade_date, q.close, q.volume):
+            problems.append(f"{q.ticker}: quote {q.trade_date} {q.close} differs from daily_bars {newest}")
+    session.cluster.shutdown()
+    print(f"quotes: {len(quotes)} tickers checked, {len(problems)} problems")
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ap = argparse.ArgumentParser(prog="python -m mdp.serving.quotes")
     ap.add_argument("--db", choices=["prod", "test"], default="prod")
     ap.add_argument("--from-beginning", action="store_true")
     ap.add_argument("--exit-when-idle", type=float, default=0.0, metavar="SECONDS")
+    ap.add_argument("--check", action="store_true", help="compare latest_quote with daily_bars and exit")
     args = ap.parse_args(argv)
+    if args.check:
+        problems = check(args.db)
+        for p in problems[:20]:
+            print("quotes:", p, file=sys.stderr)
+        return 1 if problems else 0
     run(args.db, args.from_beginning, args.exit_when_idle)
     return 0
 
