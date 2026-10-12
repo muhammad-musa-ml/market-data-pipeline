@@ -1,0 +1,11 @@
+[17:58:50] ok   HDFS matches MySQL (130000 rows) before compaction
+[17:59:38] compact: {'job': 'compact', 'wall_seconds': 30.33, 'trusted_files': 104, 'rows_read': 130000, 'duplicates_dropped': 0, 'rows': 130000, 'symbols': 50, 'table_files': 8, 'buckets': 8, 'seconds': 30.21}
+[17:59:38] ok   market.bars has every MySQL row, once
+[17:59:38] ok   104 batch files became 8 bucket files
+[18:00:19] ok   RDD, DataFrame and SQL answers are identical
+[18:00:58] ok   no Exchange in the bucketed GROUP BY and join
+[18:00:58] ok   the same queries shuffle on plain files
+[18:01:39] ok   serving extract covers every bar
+[18:01:41] ok   manifest on HDFS names the last bar id
+[18:01:41] stage 2 check passed
+EXIT=0

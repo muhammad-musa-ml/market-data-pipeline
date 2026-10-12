@@ -1,0 +1,55 @@
+=== bucketed / group_by
+== Physical Plan ==
+*(1) HashAggregate(keys=[ticker#288], functions=[count(1), avg(close#290), max(volume#291L)])
++- *(1) HashAggregate(keys=[ticker#288], functions=[partial_count(1), partial_avg(close#290), partial_max(volume#291L)])
+   +- *(1) ColumnarToRow
+      +- FileScan parquet spark_catalog.market_lab.bars_bucketed[ticker#288,close#290,volume#291L] Batched: true, Bucketed: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[hdfs://namenode:9000/user/hive/warehouse/market_lab.db/bars_bucketed], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<ticker:string,close:double,volume:bigint>, SelectedBucketsCount: 8 out of 8
+
+
+
+=== bucketed / join
+== Physical Plan ==
+*(3) HashAggregate(keys=[ticker#288], functions=[count(1), max((close#290 / avg_close#367))])
++- *(3) HashAggregate(keys=[ticker#288], functions=[partial_count(1), partial_max((close#290 / avg_close#367))])
+   +- *(3) Project [ticker#288, close#290, avg_close#367]
+      +- *(3) SortMergeJoin [ticker#288], [ticker#366], Inner
+         :- *(1) Sort [ticker#288 ASC NULLS FIRST], false, 0
+         :  +- *(1) Filter isnotnull(ticker#288)
+         :     +- *(1) ColumnarToRow
+         :        +- FileScan parquet spark_catalog.market_lab.bars_bucketed[ticker#288,close#290] Batched: true, Bucketed: true, DataFilters: [isnotnull(ticker#288)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[hdfs://namenode:9000/user/hive/warehouse/market_lab.db/bars_bucketed], PartitionFilters: [], PushedFilters: [IsNotNull(ticker)], ReadSchema: struct<ticker:string,close:double>, SelectedBucketsCount: 8 out of 8
+         +- *(2) Sort [ticker#366 ASC NULLS FIRST], false, 0
+            +- *(2) Filter isnotnull(ticker#366)
+               +- *(2) ColumnarToRow
+                  +- FileScan parquet spark_catalog.market_lab.stats_bucketed[ticker#366,avg_close#367] Batched: true, Bucketed: true, DataFilters: [isnotnull(ticker#366)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[hdfs://namenode:9000/user/hive/warehouse/market_lab.db/stats_bucketed], PartitionFilters: [], PushedFilters: [IsNotNull(ticker)], ReadSchema: struct<ticker:string,avg_close:double>, SelectedBucketsCount: 8 out of 8
+
+
+
+=== flat / group_by
+== Physical Plan ==
+*(2) HashAggregate(keys=[ticker#268], functions=[count(1), avg(close#270), max(volume#271L)])
++- Exchange hashpartitioning(ticker#268, 8), ENSURE_REQUIREMENTS, [plan_id=1734]
+   +- *(1) HashAggregate(keys=[ticker#268], functions=[partial_count(1), partial_avg(close#270), partial_max(volume#271L)])
+      +- *(1) ColumnarToRow
+         +- FileScan parquet spark_catalog.market_lab.bars_flat[ticker#268,close#270,volume#271L] Batched: true, DataFilters: [], Format: Parquet, Location: InMemoryFileIndex(1 paths)[hdfs://namenode:9000/user/hive/warehouse/market_lab.db/bars_flat], PartitionFilters: [], PushedFilters: [], ReadSchema: struct<ticker:string,close:double,volume:bigint>
+
+
+
+=== flat / join
+== Physical Plan ==
+*(5) HashAggregate(keys=[ticker#268], functions=[count(1), max((close#270 / avg_close#505))])
++- *(5) HashAggregate(keys=[ticker#268], functions=[partial_count(1), partial_max((close#270 / avg_close#505))])
+   +- *(5) Project [ticker#268, close#270, avg_close#505]
+      +- *(5) SortMergeJoin [ticker#268], [ticker#504], Inner
+         :- *(2) Sort [ticker#268 ASC NULLS FIRST], false, 0
+         :  +- Exchange hashpartitioning(ticker#268, 8), ENSURE_REQUIREMENTS, [plan_id=1942]
+         :     +- *(1) Filter isnotnull(ticker#268)
+         :        +- *(1) ColumnarToRow
+         :           +- FileScan parquet spark_catalog.market_lab.bars_flat[ticker#268,close#270] Batched: true, DataFilters: [isnotnull(ticker#268)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[hdfs://namenode:9000/user/hive/warehouse/market_lab.db/bars_flat], PartitionFilters: [], PushedFilters: [IsNotNull(ticker)], ReadSchema: struct<ticker:string,close:double>
+         +- *(4) Sort [ticker#504 ASC NULLS FIRST], false, 0
+            +- Exchange hashpartitioning(ticker#504, 8), ENSURE_REQUIREMENTS, [plan_id=1951]
+               +- *(3) Filter isnotnull(ticker#504)
+                  +- *(3) ColumnarToRow
+                     +- FileScan parquet spark_catalog.market_lab.stats_flat[ticker#504,avg_close#505] Batched: true, DataFilters: [isnotnull(ticker#504)], Format: Parquet, Location: InMemoryFileIndex(1 paths)[hdfs://namenode:9000/user/hive/warehouse/market_lab.db/stats_flat], PartitionFilters: [], PushedFilters: [IsNotNull(ticker)], ReadSchema: struct<ticker:string,avg_close:double>
+
+
+

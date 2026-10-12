@@ -331,12 +331,12 @@ def text2sql(reps: int, backend: str, final: bool) -> None:
         say(f"text2sql rep {rep}: {doc['correct']}/{doc['questions']} correct, "
             f"first try {doc['first_try_accuracy']:.2f}, median {doc['median_seconds']}s")
     d = out_dir(final)
-    with open(d / "text2sql_runs.jsonl", "w", newline="\n") as f:
+    with open(d / f"text2sql_runs_{backend}.jsonl", "w", newline="\n") as f:
         for doc in runs:
             f.write(json.dumps(doc) + "\n")
     summarize("accuracy", [r["accuracy"] for r in runs])
     summarize("median seconds per question", [r["median_seconds"] for r in runs])
-    write_results("text2sql_eval", rows, final, {**spark_meta(), "backend": runs[0]["backend"],
+    write_results(f"text2sql_eval_{backend}", rows, final, {**spark_meta(), "backend": runs[0]["backend"],
                                                  "questions": runs[0]["questions"]})
 
 

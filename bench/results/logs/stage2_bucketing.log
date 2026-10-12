@@ -1,0 +1,12 @@
+[18:09:21] == bucketing
+[18:10:29] bucketing rep 1 done
+[18:11:34] bucketing rep 2 done
+[18:12:41] bucketing rep 3 done
+[18:13:48] bucketing rep 4 done
+[18:14:54] bucketing rep 5 done
+[18:14:54] bucketed group_by seconds: median 0.28 min 0.25 max 0.42 (n=15)
+[18:14:54] bucketed join seconds: median 1.79 min 1.57 max 2.49 (n=15)
+[18:14:54] flat group_by seconds: median 0.33 min 0.29 max 0.51 (n=15)
+[18:14:54] flat join seconds: median 2.31 min 2.09 max 2.47 (n=15)
+[18:14:58] wrote <repo>\bench\results\bucketing.csv
+EXIT=0

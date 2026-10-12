@@ -1,0 +1,11 @@
+[18:14:58] == caching
+[18:16:17] caching rep 1: uncached [7.392, 7.324, 9.006] cached [0.21, 0.263, 0.216]
+[18:17:31] caching rep 2: uncached [7.951, 6.628, 5.98] cached [0.262, 0.269, 0.272]
+[18:18:42] caching rep 3: uncached [7.342, 6.37, 6.081] cached [0.229, 0.199, 0.185]
+[18:19:59] caching rep 4: uncached [8.827, 7.495, 6.503] cached [0.245, 0.211, 0.197]
+[18:21:09] caching rep 5: uncached [7.501, 6.621, 5.662] cached [0.252, 0.238, 0.226]
+[18:21:09] uncached seconds: median 7.32 min 5.66 max 9.01 (n=15)
+[18:21:09] cache_fill seconds: median 16.61 min 14.40 max 20.21 (n=5)
+[18:21:09] cached seconds: median 0.23 min 0.18 max 0.27 (n=15)
+[18:21:12] wrote <repo>\bench\results\caching.csv
+EXIT=0

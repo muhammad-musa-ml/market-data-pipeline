@@ -1,0 +1,9 @@
+[17:53:44] == kafka-init-cold
+[17:54:00] kafka-init cold start 1: exit 0
+[17:54:22] kafka-init cold start 2: exit 0
+[17:54:43] kafka-init cold start 3: exit 0
+[17:55:06] kafka-init cold start 4: exit 0
+[17:55:28] kafka-init cold start 5: exit 0
+[17:55:35] kafka-init succeeded first try 5 of 5 times
+[17:55:38] wrote <repo>\bench\results\kafka_init_cold.csv
+EXIT=0

@@ -1,0 +1,39 @@
+[17:45:35] starting the stack
+[17:46:31] PASS sink output matches MySQL (no duplicates, gaps or changed values)  (130000 of 130000 rows, 0 duplicates, 0 gaps, 0 mismatches)
+[17:46:31] PASS history was loaded  (130000 bars)
+[17:46:34] PASS topic has 4 partitions, each replicated on 3 brokers  (4 partitions)
+[17:46:34] PASS all replicas in sync
+[17:46:38] PASS export returns the row count of the JOIN  (78000 rows)
+[17:46:38] PASS export file is at replication 2 with 1 MiB blocks
+[17:46:41] PASS export by sector name  (15600 rows)
+[17:46:44] PASS unknown sector is rejected
+[17:46:47] PASS destination outside the export directory is rejected
+[17:46:49] PASS block report matches replication 2  (4 blocks over {'datanode1': 2, 'datanode2': 4, 'datanode3': 2})
+[17:46:56] PASS first summary builds or reuses the cache  (CACHE_CREATED)
+[17:46:56] PASS second summary reuses the cache
+[17:46:56] PASS summary average close matches MySQL  (377.872031 vs 377.872031)
+[17:46:58] PASS unknown ticker is NOT_FOUND
+[17:47:17] PASS checker reports duplicated rows  (1680 duplicate ids)
+[17:47:27] PASS checker is clean again after restoring
+[17:47:46] cache files per datanode: datanode1=9, datanode2=7, datanode3=14
+[17:47:46] killing datanode3 (14 replication-1 cache files live there)
+[17:48:36] datanode result: {"victim": "datanode3", "affected_files": 14, "calls_after_kill": 600, "errors": 0, "recreated": 14, "recreated_unaffected": [], "recovery_seconds": 6.06, "slowest_call_ms": 6071.5}
+[17:48:36] PASS fault drill: datanode
+[17:48:39] leader of partition 0 is broker 1; producing at 300 bars/s
+[17:49:01] killed kafka-1
+[17:49:33] restarted kafka-1
+[17:49:56] generator stopped; 17430 bars inserted; waiting for the sink to drain
+[17:50:10] broker result: {"killed_broker": 1, "bars_inserted": 17430, "leader_during_outage": 2, "producer_restarts": 0, "producer_chunk_retries": 0, "isr_after": {"0": [1, 2, 3], "1": [1, 2, 3], "2": [1, 2, 3], "3": [1, 2, 3]}, "check": {"expected": 147430, "found_rows": 147430, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[17:50:10] PASS fault drill: broker
+[17:50:32] killed producer (1/4)
+[17:50:41] killed producer (2/4)
+[17:50:57] killed producer (3/4)
+[17:51:12] killed producer (4/4)
+[17:51:40] producer-crash result: {"producer_kills": 4, "bars_inserted": 17370, "check": {"expected": 164800, "found_rows": 164800, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[17:51:40] PASS fault drill: producer-crash
+[17:52:59] 15 sink runs, 12 injected crashes between write and checkpoint, 3 runs ended by docker kill or otherwise; 17380 bars inserted
+[17:53:16] sink-crash result: {"sink_runs": 15, "injected_crashes": 12, "other_exits": 3, "bars_inserted": 17380, "check": {"expected": 182180, "found_rows": 182180, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[17:53:16] PASS fault drill: sink-crash
+[17:53:16] tearing the stack down
+[17:53:34] 20 passed, 0 failed
+EXIT=0

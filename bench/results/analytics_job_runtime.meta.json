@@ -1,0 +1,23 @@
+{
+  "name": "analytics_job_runtime",
+  "when": "2026-10-12T18:09:17-0500",
+  "argv": [
+    "bench/run_bench.py",
+    "jobs",
+    "--reps",
+    "5",
+    "--final"
+  ],
+  "machine": {
+    "host_cpu": "13th Gen Intel(R) Core(TM) i7-13700HX",
+    "docker_cpus": 24,
+    "docker_memory_gib": 14.5,
+    "docker_version": "28.4.0",
+    "docker_os": "Docker Desktop",
+    "host_os": "Windows-11-10.0.26200-SP0",
+    "commit": "1f5de20982fe98ebe24e53ebfc600701ee36cbd8",
+    "uncommitted_changes": true
+  },
+  "source_rows": 130000,
+  "spark": "apache/spark:4.2.0, 1 master, 2 workers x 2 cores, executor memory 1g + 256m overhead, driver 768m, shuffle partitions 8, 8 buckets"
+}

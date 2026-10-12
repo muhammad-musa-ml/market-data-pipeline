@@ -1,0 +1,24 @@
+[18:01:50] == jobs
+[18:02:24] jobs rep 1: compact 21.89s
+[18:03:01] jobs rep 1: question 24.53s
+[18:03:31] jobs rep 1: serving 20.63s
+[18:03:56] jobs rep 2: compact 16.23s
+[18:04:23] jobs rep 2: question 17.28s
+[18:04:50] jobs rep 2: serving 18.84s
+[18:05:19] jobs rep 3: compact 19.01s
+[18:05:47] jobs rep 3: question 18.36s
+[18:06:18] jobs rep 3: serving 20.27s
+[18:06:45] jobs rep 4: compact 17.19s
+[18:07:15] jobs rep 4: question 19.85s
+[18:07:46] jobs rep 4: serving 20.92s
+[18:08:14] jobs rep 5: compact 18.26s
+[18:08:45] jobs rep 5: question 20.06s
+[18:09:16] jobs rep 5: serving 21.22s
+[18:09:16] compact wall seconds: median 18.26 min 16.23 max 21.89 (n=5)
+[18:09:16] question wall seconds: median 19.85 min 17.28 max 24.53 (n=5)
+[18:09:16] question-dataframe wall seconds: median 1.16 min 0.94 max 1.55 (n=5)
+[18:09:16] question-rdd wall seconds: median 1.52 min 1.32 max 2.56 (n=5)
+[18:09:16] question-sql wall seconds: median 0.86 min 0.73 max 0.92 (n=5)
+[18:09:16] serving wall seconds: median 20.63 min 18.84 max 21.22 (n=5)
+[18:09:21] wrote <repo>\bench\results\analytics_job_runtime.csv
+EXIT=0

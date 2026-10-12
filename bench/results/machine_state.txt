@@ -1,0 +1,18 @@
+before the measurement runs, UTC 2026-10-12T22:45:29
+cpu: 13th Gen Intel(R) Core(TM) i7-13700HX, 24 logical CPUs
+os: Windows-11-10.0.26200-SP0
+total memory GiB: 29.7, free GiB: 4.3
+cpu busy percent, five samples two seconds apart: 37, 24, 27, 42, 25
+docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
+docker containers running (other projects, not mine): 9
+docker containers running (this project): 0
+
+before the stage 2 runs, UTC 2026-10-12T22:57:16
+cpu: 13th Gen Intel(R) Core(TM) i7-13700HX, 24 logical CPUs
+os: Windows-11-10.0.26200-SP0
+total memory GiB: 29.7, free GiB: 2.4
+cpu busy percent, five samples two seconds apart: 31, 13, 17, 34, 41
+docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
+docker containers running (other projects, not mine): 9
+docker containers running (this project): 5
+

@@ -1,0 +1,6 @@
+rep,exit_code,first_try_ok,last_log_line
+1,0,True,admin: created market.producer-progress.v1
+2,0,True,admin: created market.producer-progress.v1
+3,0,True,admin: created market.producer-progress.v1
+4,0,True,admin: created market.producer-progress.v1
+5,0,True,admin: created market.producer-progress.v1

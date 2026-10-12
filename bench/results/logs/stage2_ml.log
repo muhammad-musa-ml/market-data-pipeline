@@ -1,0 +1,8 @@
+[18:21:36] == ml
+[18:29:30] ml rep 1: depth 4 test R2 0.183, persistence 0.108, 463.6s
+[18:36:36] ml rep 2: depth 5 test R2 0.185, persistence 0.108, 412.7s
+[18:43:25] ml rep 3: depth 4 test R2 0.183, persistence 0.108, 398.1s
+[18:43:25] chosen-depth test R2: median 0.18 min 0.18 max 0.18 (n=3)
+[18:43:29] wrote <repo>\bench\results\ml_metrics.csv
+[18:43:31] wrote <repo>\bench\results\ml_depth_sweep.csv
+EXIT=0

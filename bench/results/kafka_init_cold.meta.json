@@ -1,0 +1,21 @@
+{
+  "name": "kafka_init_cold",
+  "when": "2026-10-12T17:55:35-0500",
+  "argv": [
+    "bench/run_bench.py",
+    "kafka-init-cold",
+    "--reps",
+    "5",
+    "--final"
+  ],
+  "machine": {
+    "host_cpu": "13th Gen Intel(R) Core(TM) i7-13700HX",
+    "docker_cpus": 24,
+    "docker_memory_gib": 14.5,
+    "docker_version": "28.4.0",
+    "docker_os": "Docker Desktop",
+    "host_os": "Windows-11-10.0.26200-SP0",
+    "commit": "1f5de20982fe98ebe24e53ebfc600701ee36cbd8",
+    "uncommitted_changes": true
+  }
+}

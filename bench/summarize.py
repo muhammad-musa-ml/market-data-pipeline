@@ -67,6 +67,17 @@ def accuracy(rs):
             "median_seconds_per_question": statistics.median(secs), "max_seconds": secs[-1]}
 
 
+def per_question(rows):
+    out = ["| question | correct in | first try in | seconds |", "|---|---|---|---|"]
+    ids = list(dict.fromkeys(r["id"] for r in rows))
+    for i in ids:
+        rs = [r for r in rows if r["id"] == i]
+        secs = [float(r["seconds"]) for r in rs]
+        out.append(f"| {i} | {sum(r['correct'] == 'True' for r in rs)} of {len(rs)} | "
+                   f"{sum(r['first_try'] == 'True' for r in rs)} of {len(rs)} | {stat(secs)} |")
+    return out
+
+
 def drills(rows):
     out = ["| drill | runs | bars inserted (per run) | rows on HDFS equal rows in MySQL | duplicates | gaps | value mismatches |",
            "|---|---|---|---|---|---|---|"]
@@ -117,9 +128,12 @@ SECTIONS = [
      lambda rows: table(rows, ["model", "depth"], ["test_r2", "test_rmse"])),
     ("ml_depth_sweep", "Stage 2: depth sweep",
      lambda rows: table(rows, ["depth"], ["train_r2", "test_r2", "fit_seconds"])),
-    ("text2sql_eval", "Stage 2: text-to-SQL, 28 questions per run",
-     lambda rows: table(per_rep(rows, ["backend", "rep"], accuracy), ["backend"],
-                        ["accuracy", "first_try_accuracy", "median_seconds_per_question", "max_seconds"])),
+    *[(f"text2sql_eval_{b}", f"Stage 2: text-to-SQL on {b}, 28 questions per run",
+       lambda rows: table(per_rep(rows, ["backend", "rep"], accuracy), ["backend"],
+                          ["accuracy", "first_try_accuracy", "median_seconds_per_question", "max_seconds"]))
+      for b in ("vertex", "ollama")],
+    ("text2sql_eval_vertex", "Stage 2: text-to-SQL on vertex, per question (seconds are model plus validation plus execution)",
+     lambda rows: per_question(rows)),
     ("serving_latency", "Stage 3: Cassandra request latency, milliseconds, all nodes up",
      lambda rows: table(rows, ["consistency", "op"], ["p50_ms", "p95_ms", "p99_ms"])),
     ("serving_api_latency", "Stage 3: REST latency from the host, milliseconds",

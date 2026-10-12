@@ -1,0 +1,8 @@
+[18:45:30] == text2sql
+[18:48:55] text2sql rep 1: 28/28 correct, first try 1.00, median 4.65s
+[18:52:20] text2sql rep 2: 28/28 correct, first try 1.00, median 4.24s
+[18:56:04] text2sql rep 3: 28/28 correct, first try 1.00, median 5.5s
+[18:56:04] accuracy: median 1.00 min 1.00 max 1.00 (n=3)
+[18:56:04] median seconds per question: median 4.65 min 4.24 max 5.50 (n=3)
+[18:56:08] wrote <repo>\bench\results\text2sql_eval_vertex.csv
+EXIT=0

@@ -1,0 +1,6 @@
+[18:57:21] == text2sql
+[18:58:56] text2sql rep 1: 22/28 correct, first try 0.75, median 1.38s
+[18:58:56] accuracy: median 0.79 min 0.79 max 0.79 (n=1)
+[18:58:56] median seconds per question: median 1.38 min 1.38 max 1.38 (n=1)
+[18:58:59] wrote <repo>\bench\results\text2sql_eval_ollama.csv
+EXIT=0
