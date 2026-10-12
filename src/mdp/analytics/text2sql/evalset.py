@@ -68,4 +68,27 @@ CASES = [
          "GROUP BY s.sector"),
     Case("pct-up", "What percentage of bars closed above their open?",
          "SELECT 100.0 * AVG(CASE WHEN close > open THEN 1.0 ELSE 0.0 END) FROM market.bars"),
+    # added after the first 22 all passed: top-per-group, a view joined back to symbols, set logic
+    Case("top-ticker-per-sector", "For each sector, which ticker has the highest average closing price?",
+         "SELECT sector, ticker FROM (SELECT s.sector, s.ticker, "
+         "RANK() OVER (PARTITION BY s.sector ORDER BY AVG(b.close) DESC) AS r "
+         "FROM market.bars b JOIN market.symbols s ON b.symbol_id = s.symbol_id "
+         "GROUP BY s.sector, s.ticker) t WHERE r = 1"),
+    Case("busiest-year", "Which year had the largest total volume, and how large was it?",
+         "SELECT year(trade_date), SUM(volume) FROM market.bars GROUP BY year(trade_date) "
+         "ORDER BY SUM(volume) DESC LIMIT 1"),
+    Case("net-risers", "How many tickers closed higher on their last trading day than on their first?",
+         "SELECT COUNT(*) FROM (SELECT ticker FROM market.bars GROUP BY ticker "
+         "HAVING max_by(close, trade_date) > min_by(close, trade_date)) t"),
+    Case("avg-return-sector-2022", "What was the average daily return of each sector in 2022?",
+         "SELECT s.sector, AVG(r.ret) FROM market.daily_returns r "
+         "JOIN market.symbols s ON r.ticker = s.ticker WHERE year(r.trade_date) = 2022 GROUP BY s.sector"),
+    Case("broad-up-days", "On how many dates did more than half of all tickers close above their open?",
+         "SELECT COUNT(*) FROM (SELECT trade_date FROM market.bars GROUP BY trade_date "
+         "HAVING AVG(CASE WHEN close > open THEN 1.0 ELSE 0.0 END) > 0.5) t"),
+    Case("top-ticker-per-exchange", "For each exchange, which ticker has the largest total volume?",
+         "SELECT exchange, ticker FROM (SELECT s.exchange, b.ticker, "
+         "RANK() OVER (PARTITION BY s.exchange ORDER BY SUM(b.volume) DESC) AS r "
+         "FROM market.bars b JOIN market.symbols s ON b.symbol_id = s.symbol_id "
+         "GROUP BY s.exchange, b.ticker) t WHERE r = 1"),
 ]

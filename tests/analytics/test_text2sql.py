@@ -93,10 +93,10 @@ def test_every_gold_query_is_valid_and_runs(spark, warehouse, case):
     assert rows, case.id
 
 
-def test_gold_questions_are_unique_and_about_twenty():
+def test_gold_questions_are_unique_and_a_few_dozen():
     assert len({c.id for c in CASES}) == len(CASES)
     assert len({c.question for c in CASES}) == len(CASES)
-    assert 18 <= len(CASES) <= 25
+    assert 20 <= len(CASES) <= 30
 
 
 def test_scoring_a_backend_that_returns_the_gold_sql(spark, warehouse):
