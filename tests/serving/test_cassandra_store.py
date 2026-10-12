@@ -11,59 +11,7 @@ from cassandra.util import Date
 from mdp.serving.cassandra_store import CassandraStore
 from mdp.serving.models import Company
 from mdp.serving.store import Conflict, Unavailable
-from serving_fakes import bar
-
-
-class Prepared(SimpleNamespace):
-    pass
-
-
-class FakeResult:
-    def __init__(self, rows):
-        self.rows = rows
-
-    def one(self):
-        return self.rows[0] if self.rows else None
-
-    def __iter__(self):
-        return iter(self.rows)
-
-
-class FakeFuture:
-    """Just enough of ResponseFuture for cassandra.concurrent."""
-
-    def __init__(self, error):
-        self.error = error
-
-    def add_callbacks(self, callback, errback, callback_args=(), callback_kwargs=None, errback_args=(),
-                      errback_kwargs=None):
-        if self.error:
-            errback(self.error, *errback_args, **(errback_kwargs or {}))
-        else:
-            callback([], *callback_args, **(callback_kwargs or {}))
-
-
-class FakeSession:
-    def __init__(self):
-        self.prepared: list[Prepared] = []
-        self.executed: list[tuple] = []
-        self.results: list = []
-        self.error: Exception | None = None
-
-    def prepare(self, cql):
-        p = Prepared(cql=cql, consistency_level=None, serial_consistency_level=None)
-        self.prepared.append(p)
-        return p
-
-    def execute(self, stmt, params=()):
-        if self.error:
-            raise self.error
-        self.executed.append((stmt, params))
-        return FakeResult(self.results)
-
-    def execute_async(self, stmt, params=(), *args, **kwargs):
-        self.executed.append((stmt, params))
-        return FakeFuture(self.error)
+from serving_fakes import FakeSession, bar
 
 
 def store(consistency=ConsistencyLevel.QUORUM):
