@@ -149,10 +149,10 @@ class WebHdfs:
             return
         raise HdfsError(f"CREATE {path}: no DataNode accepted the write")
 
-    def read(self, path: str, offset: int = 0, length: int | None = None) -> bytes:
+    def read(self, path: str, offset: int = 0, length: int | None = None, attempts: int = 5) -> bytes:
         bad: list[str] = []
         last = ""
-        for attempt in range(5):
+        for attempt in range(attempts):
             resp = self._nn(
                 "GET", path, "OPEN", offset=offset or None, length=length,
                 excludedatanodes=self._exclude_param(bad), noredirect="true",

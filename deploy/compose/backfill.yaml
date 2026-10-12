@@ -1,0 +1,17 @@
+# gRPC backfill service: MySQL query -> Parquet on HDFS, block report, per-symbol aggregate.
+services:
+  backfill:
+    image: mdp-app:local
+    build:
+      context: .
+      dockerfile: deploy/images/app/Dockerfile
+    env_file: deploy/env/app.env
+    command: ["python", "-m", "mdp.backfill.server"]
+    ports:
+      - "127.0.0.1:8320:50051"
+    depends_on:
+      mysql: {condition: service_healthy}
+      namenode: {condition: service_healthy}
+      loader: {condition: service_completed_successfully}
+    restart: on-failure
+    mem_limit: 384m
