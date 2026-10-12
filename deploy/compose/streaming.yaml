@@ -1,0 +1,111 @@
+# Three-broker KRaft Kafka plus the producer, the HDFS sink and a debug consumer.
+x-app: &app
+  image: mdp-app:local
+  build:
+    context: .
+    dockerfile: deploy/images/app/Dockerfile
+  env_file: deploy/env/app.env
+
+x-kafka-env: &kafka-env
+  CLUSTER_ID: GKgbrfOPQJS2PhvNCKRbPw
+  KAFKA_PROCESS_ROLES: broker,controller
+  KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+  KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+  KAFKA_LOG_DIRS: /var/lib/kafka/data
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+  KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+  KAFKA_MIN_INSYNC_REPLICAS: 2
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  # failover in seconds rather than the default nine-second session
+  KAFKA_BROKER_SESSION_TIMEOUT_MS: 6000
+  KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
+
+x-kafka: &kafka
+  image: apache/kafka:4.3.1
+  mem_limit: 512m
+  healthcheck:
+    test: ["CMD-SHELL", "bash -c ': > /dev/tcp/localhost/9092'"]
+    interval: 5s
+    timeout: 5s
+    retries: 30
+    start_period: 15s
+
+services:
+  kafka-1:
+    <<: *kafka
+    hostname: kafka-1
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+    volumes:
+      - kafka-1-data:/var/lib/kafka/data
+
+  kafka-2:
+    <<: *kafka
+    hostname: kafka-2
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+    volumes:
+      - kafka-2-data:/var/lib/kafka/data
+
+  kafka-3:
+    <<: *kafka
+    hostname: kafka-3
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+    volumes:
+      - kafka-3-data:/var/lib/kafka/data
+
+  kafka-init:
+    <<: *app
+    command: ["python", "-m", "mdp.stream.admin"]
+    depends_on:
+      kafka-1: {condition: service_healthy}
+      kafka-2: {condition: service_healthy}
+      kafka-3: {condition: service_healthy}
+    restart: "no"
+    mem_limit: 128m
+
+  producer:
+    <<: *app
+    command: ["python", "-m", "mdp.stream.producer"]
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+      loader: {condition: service_completed_successfully}
+    restart: on-failure
+    mem_limit: 256m
+
+  sink:
+    <<: *app
+    command: ["python", "-m", "mdp.stream.sink"]
+    environment:
+      SINK_CRASH_PROB: ${SINK_CRASH_PROB:-0}
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+      namenode: {condition: service_healthy}
+    restart: on-failure
+    mem_limit: 384m
+
+  debug-consumer:
+    <<: *app
+    profiles: [debug]
+    command: ["python", "-m", "mdp.stream.debug"]
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+    mem_limit: 128m
+
+volumes:
+  kafka-1-data:
+  kafka-2-data:
+  kafka-3-data:

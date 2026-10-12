@@ -1,4 +1,11 @@
-# MySQL and the HDFS cluster. Everything else in the stack depends on these.
+# MySQL and the HDFS cluster, the one-shot data loader, and a scratch tools container.
+x-app: &app
+  image: mdp-app:local
+  build:
+    context: .
+    dockerfile: deploy/images/app/Dockerfile
+  env_file: deploy/env/app.env
+
 services:
   mysql:
     image: mysql:8.4
@@ -69,6 +76,35 @@ services:
     hostname: datanode3
     volumes:
       - datanode3-data:/data/dn
+
+  # Loads the history (idempotent) and publishes the symbols dimension to HDFS.
+  loader:
+    <<: *app
+    command: ["sh", "-c", "python -m mdp.gen history && python -m mdp.gen export-symbols"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      namenode: {condition: service_healthy}
+    restart: "no"
+    mem_limit: 256m
+
+  # Appends new bars forever: docker compose --profile live up -d generator-live
+  generator-live:
+    <<: *app
+    profiles: [live]
+    command: ["python", "-m", "mdp.gen", "live"]
+    environment:
+      GEN_RATE: ${GEN_RATE:-100}
+    depends_on:
+      loader: {condition: service_completed_successfully}
+    restart: on-failure
+    mem_limit: 256m
+
+  # docker compose run --rm tools python -m mdp.check.verify
+  tools:
+    <<: *app
+    profiles: [tools]
+    command: ["sleep", "infinity"]
+    mem_limit: 512m
 
 volumes:
   mysql-data:
