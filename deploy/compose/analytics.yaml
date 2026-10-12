@@ -78,7 +78,7 @@ services:
     depends_on:
       spark-master: {condition: service_healthy}
     restart: on-failure
-    mem_limit: 1536m
+    mem_limit: 1792m
 
   spark-worker-2:
     <<: *worker
