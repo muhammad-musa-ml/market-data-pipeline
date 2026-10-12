@@ -1,0 +1,156 @@
+# Stage 3: a three-node Cassandra cluster, the REST API over MySQL and over Cassandra, and the
+# gRPC tick ingest service. All in profile "serving", so stage 1 is unchanged. Name the leaf
+# services to bring up only what they need (MySQL, no Kafka or Spark):
+#   docker compose --profile serving up -d api-mysql api-cassandra ingest
+#
+# Limits of the serving profile: 3 x 1280 (Cassandra) + 192 + 256 + 192 + 128 (init, exits)
+# = 4608 MB. serving-tools (profile serving-tools, 512 MB) is for the loader and the drills.
+x-serving: &serving
+  image: mdp-serving:local
+  build:
+    context: .
+    dockerfile: deploy/images/serving/Dockerfile
+  env_file: deploy/env/app.env
+  environment: &serving-env
+    CASSANDRA_HOSTS: cassandra-1,cassandra-2,cassandra-3
+    MYSQL_ROOT_PASSWORD: ${MDP_MYSQL_ROOT_PASSWORD:-mdp-root}
+  dns_opt: ["timeout:1", "attempts:1"]
+
+x-cassandra: &cassandra
+  image: cassandra:5.0.9
+  profiles: [serving]
+  mem_limit: 1280m
+  environment: &cassandra-env
+    CASSANDRA_CLUSTER_NAME: mdp
+    CASSANDRA_SEEDS: cassandra-1
+    CASSANDRA_DC: dc1
+    CASSANDRA_RACK: rack1
+    CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+    CASSANDRA_NUM_TOKENS: 16
+    MAX_HEAP_SIZE: 512M
+    HEAP_NEWSIZE: 128M
+    # nodes join one at a time; the default 30 s ring delay would make that take minutes
+    JVM_EXTRA_OPTS: >-
+      -Dcassandra.ring_delay_ms=10000 -Dcassandra.available_processors=2
+      -XX:ParallelGCThreads=2 -XX:ConcGCThreads=1 -XX:MaxDirectMemorySize=192m
+      -XX:ReservedCodeCacheSize=64m -XX:MaxMetaspaceSize=128m
+  healthcheck: &cassandra-health
+    interval: 10s
+    timeout: 30s
+    retries: 30
+    start_period: 40s
+
+services:
+  # A node is healthy when it sees at least as many nodes Up and Normal (UN) as have been started
+  # before it, plus itself; cassandra-3 therefore reports healthy only when all three are UN.
+  cassandra-1:
+    <<: *cassandra
+    hostname: cassandra-1
+    volumes:
+      - cassandra-1-data:/var/lib/cassandra
+    healthcheck:
+      <<: *cassandra-health
+      test: ["CMD-SHELL", "[ \"$$(nodetool status 2>/dev/null | grep -c '^UN')\" -ge 1 ]"]
+
+  cassandra-2:
+    <<: *cassandra
+    hostname: cassandra-2
+    depends_on:
+      cassandra-1: {condition: service_healthy}
+    volumes:
+      - cassandra-2-data:/var/lib/cassandra
+    healthcheck:
+      <<: *cassandra-health
+      test: ["CMD-SHELL", "[ \"$$(nodetool status 2>/dev/null | grep -c '^UN')\" -ge 2 ]"]
+
+  cassandra-3:
+    <<: *cassandra
+    hostname: cassandra-3
+    depends_on:
+      cassandra-2: {condition: service_healthy}
+    volumes:
+      - cassandra-3-data:/var/lib/cassandra
+    healthcheck:
+      <<: *cassandra-health
+      test: ["CMD-SHELL", "[ \"$$(nodetool status 2>/dev/null | grep -c '^UN')\" -ge 3 ]"]
+
+  # Creates the keyspaces and tables in Cassandra and the databases and tables in MySQL
+  # (root is only used for the databases). Safe to run again.
+  serving-init:
+    <<: *serving
+    profiles: [serving]
+    command: ["python", "-m", "mdp.serving.init_schema"]
+    depends_on:
+      mysql: {condition: service_healthy}
+      cassandra-3: {condition: service_healthy}
+    restart: "no"
+    mem_limit: 128m
+
+  api-mysql:
+    <<: *serving
+    profiles: [serving]
+    command: &gunicorn ["gunicorn", "-w", "2", "--threads", "4", "-b", "0.0.0.0:8000", "--access-logfile", "-", "mdp.serving.wsgi:app"]
+    environment:
+      <<: *serving-env
+      API_BACKEND: mysql
+    ports:
+      - "127.0.0.1:8400:8000"
+    depends_on:
+      serving-init: {condition: service_completed_successfully}
+    healthcheck: &api-health
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    restart: on-failure
+    mem_limit: 192m
+
+  api-cassandra:
+    <<: *serving
+    profiles: [serving]
+    command: *gunicorn
+    environment:
+      <<: *serving-env
+      API_BACKEND: cassandra
+    ports:
+      - "127.0.0.1:8401:8000"
+    depends_on:
+      serving-init: {condition: service_completed_successfully}
+    healthcheck: *api-health
+    restart: on-failure
+    mem_limit: 256m
+
+  ingest:
+    <<: *serving
+    profiles: [serving]
+    command: ["python", "-m", "mdp.serving.ingest_server"]
+    ports:
+      - "127.0.0.1:8410:50061"
+    depends_on:
+      serving-init: {condition: service_completed_successfully}
+    restart: on-failure
+    mem_limit: 192m
+
+  # Quote consumer: keeps latest_quote current from the bars topic. Needs Kafka up.
+  quotes:
+    <<: *serving
+    profiles: [serving-quotes]
+    command: ["python", "-m", "mdp.serving.quotes"]
+    depends_on:
+      serving-init: {condition: service_completed_successfully}
+      kafka-init: {condition: service_completed_successfully}
+    restart: on-failure
+    mem_limit: 256m
+
+  # docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.loader
+  serving-tools:
+    <<: *serving
+    profiles: [serving-tools]
+    command: ["sleep", "infinity"]
+    mem_limit: 512m
+
+volumes:
+  cassandra-1-data:
+  cassandra-2-data:
+  cassandra-3-data:
