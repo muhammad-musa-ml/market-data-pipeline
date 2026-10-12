@@ -87,6 +87,7 @@ notices, and tears the stack down (`--keep` leaves it up, `--faults` adds the dr
 python scripts/faults.py datanode     # kill a DataNode while the aggregate RPC is being called
 python scripts/faults.py broker       # kill the broker leading partition 0 during production
 python scripts/faults.py sink-crash   # crash the sink between Parquet write and checkpoint, restart, repeat
+python scripts/faults.py producer-crash   # kill the producer at random moments and start it again
 ```
 
 Each ends by running the checker where it applies and exits non-zero if anything is off.
