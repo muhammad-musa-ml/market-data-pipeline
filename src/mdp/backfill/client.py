@@ -3,6 +3,7 @@ import argparse
 import sys
 
 import grpc
+from google.protobuf import json_format
 
 from mdp.config import Settings
 from mdp.v1 import backfill_pb2 as pb
@@ -13,9 +14,17 @@ def stub(addr: str) -> rpc.BackfillStub:
     return rpc.BackfillStub(grpc.insecure_channel(addr))
 
 
+def show(reply, as_json: bool) -> None:
+    if as_json:
+        print(json_format.MessageToJson(reply, indent=None, preserving_proto_field_name=True))
+    else:
+        print(reply)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m mdp.backfill.client")
     ap.add_argument("--addr", default=Settings.from_env().backfill_addr)
+    ap.add_argument("--json", action="store_true", help="print the reply as one JSON line")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     ex = sub.add_parser("export", help="export bars for one sector or exchange to HDFS")
@@ -38,12 +47,12 @@ def main(argv: list[str] | None = None) -> int:
             req = pb.ExportBarsRequest(
                 dimension=pb.DIMENSION_SECTOR if args.sector else pb.DIMENSION_EXCHANGE,
                 name=args.sector or args.exchange, dest_path=args.dest)
-            print(s.ExportBars(req, timeout=300))
+            show(s.ExportBars(req, timeout=300), args.json)
         elif args.cmd == "blocks":
-            print(s.BlockDistribution(pb.BlockDistributionRequest(path=args.path), timeout=60))
+            show(s.BlockDistribution(pb.BlockDistributionRequest(path=args.path), timeout=60), args.json)
         else:
-            print(s.SymbolSummary(
-                pb.SymbolSummaryRequest(ticker=args.ticker, source_path=args.source), timeout=120))
+            show(s.SymbolSummary(
+                pb.SymbolSummaryRequest(ticker=args.ticker, source_path=args.source), timeout=120), args.json)
     except grpc.RpcError as exc:
         print(f"{exc.code().name}: {exc.details()}", file=sys.stderr)
         return 1
