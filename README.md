@@ -223,8 +223,8 @@ and then Cassandra. `test_parity.py` sends the same requests to both and compare
 reads right after them succeed, that creating a company still works, and that with two nodes down the API
 says 503 and the refused write left nothing behind. `test_ingest_availability.py` does the 0, 1 and 2 nodes
 down matrix for the ingest RPCs and checks that every tick acknowledged during the outage is readable at ALL
-afterwards. The node tests take a few minutes because Cassandra needs about twenty seconds to notice a
-crashed node and under a minute to come back. For the full table, including the REST endpoints:
+afterwards. The node tests take a few minutes because the other nodes take a while to notice a
+crashed node and each node takes a while to start again. For the full table, including the REST endpoints:
 
 ```
 python scripts/serving_faults.py matrix
