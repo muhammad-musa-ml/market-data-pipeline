@@ -59,15 +59,16 @@ class PartitionSink:
         path = layout.batch_path(self.partition, self.cp.batch)
         self.store.write(path, codec.table_to_bytes(table))
         self.crash("after_parquet")
-        self.cp = checkpoint.Checkpoint(batch=self.cp.batch + 1, offset=fresh[-1][0] + 1)
-        checkpoint.save(self.store, self.partition, self.cp)
+        advanced = checkpoint.Checkpoint(batch=self.cp.batch + 1, offset=fresh[-1][0] + 1)
+        checkpoint.save(self.store, self.partition, advanced)
+        self.cp = advanced
         self.crash("after_checkpoint")
         return table.num_rows
 
 
 def run(cfg: Settings, partitions: list[int], crash: CrashHook, max_batch: int,
         poll_timeout: float) -> None:
-    from confluent_kafka import Consumer, KafkaError, TopicPartition
+    from confluent_kafka import Consumer, TopicPartition
 
     hdfs = WebHdfs(cfg.webhdfs_url, cfg.hdfs_user)
     hdfs.wait_ready(cfg.hdfs_min_datanodes)

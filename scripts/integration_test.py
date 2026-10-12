@@ -131,6 +131,7 @@ def main() -> int:
         if args.faults:
             import faults
             for name, fn in (("datanode", faults.datanode), ("broker", faults.broker),
+                             ("producer-crash", faults.producer_crash),
                              ("sink-crash", faults.sink_crash)):
                 fn()
                 check(f"fault drill: {name}", True)

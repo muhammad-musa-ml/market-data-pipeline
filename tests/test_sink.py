@@ -105,6 +105,9 @@ def test_failed_checkpoint_rename_keeps_the_previous_checkpoint():
         sink.ingest(encoded(range(4, 8)))
     store.fail_rename = False
     assert checkpoint.load(store, 0) == checkpoint.Checkpoint(batch=1, offset=4)
+    assert sink.cp == checkpoint.Checkpoint(batch=1, offset=4)  # memory matches what is persisted
+    sink.ingest(encoded(range(4, 8)))
+    assert trusted_ids(store, 0) == list(range(8))
 
 
 def test_replayed_records_below_the_checkpoint_are_ignored():

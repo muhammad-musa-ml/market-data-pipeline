@@ -15,7 +15,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from mdp import db, layout
+from mdp import db
 from mdp.config import Settings
 from mdp.hdfs import WebHdfs
 from mdp.stream import checkpoint, codec
