@@ -20,7 +20,8 @@ def store(consistency=ConsistencyLevel.QUORUM):
 
 
 def test_every_statement_runs_at_quorum_by_default_and_targets_the_keyspace():
-    _, session = store()
+    session = FakeSession()
+    CassandraStore(session, "prod")  # no consistency argument: the default is what the API gets
     assert len(session.prepared) == 6
     assert {p.consistency_level for p in session.prepared} == {ConsistencyLevel.QUORUM}
     assert all("prod.daily_bars" in p.cql for p in session.prepared)
@@ -150,3 +151,13 @@ def test_batch_size_one_means_one_statement_per_row(monkeypatch):
     s, session = store()
     s.upsert_bars(rows_for(("A", 4)), concurrency=16, batch_size=1)
     assert calls == [(s._put, 4, 16)]
+
+
+def test_the_store_the_api_opens_runs_at_quorum(monkeypatch):
+    from mdp.serving import backends, cluster
+    from mdp.serving.settings import ServingSettings
+    session = FakeSession()
+    monkeypatch.setattr(cluster, "shared", lambda cfg: session)
+    backends.open_store("cassandra", "test", ServingSettings.from_env())
+    assert {p.consistency_level for p in session.prepared} == {ConsistencyLevel.QUORUM}
+    assert all("test.daily_bars" in p.cql for p in session.prepared)
