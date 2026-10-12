@@ -4,11 +4,10 @@ A market-data platform that runs on one machine with Docker Compose. Synthetic d
 MySQL through a three-broker Kafka cluster into exactly-once Parquet files on HDFS, a gRPC service
 moves historical tables from MySQL to HDFS in bulk and answers per-symbol aggregates while DataNodes
 die, and a small Spark cluster with a Hive metastore compacts the bars into a bucketed warehouse
-table, trains a volatility model on it and answers questions asked in English. The data comes from a
-seeded generator; none of it is real market data.
-
-This repository is at stage 2 of 3. Stage 3 (a Cassandra serving tier with a REST API) is not here
-yet; stage 2 leaves the dataset it will read under `/market/serving`.
+table, trains a volatility model on it and answers questions asked in English. A three-node Cassandra
+cluster then serves the bars through a REST API that runs over Cassandra or over MySQL with the same
+tests, and through a gRPC service for uploading ticks whose writes and reads use different consistency
+levels on purpose. The data comes from a seeded generator; none of it is real market data.
 
 ## Where it came from
 
@@ -36,6 +35,19 @@ on 28 questions with hand-written gold SQL; and Spark writes a preprocessed extr
 Because geometric Brownian motion has nothing to predict about tomorrow's volatility, I also changed
 the generator so volatility clusters, and the model only has something to learn because of that
 (`docs/CONTRACT.md` has the details).
+
+Stage 3 comes from two Cassandra projects in the same course. One ported a Flask and MySQL stock-price
+REST API to a three-node Cassandra cluster (partition and clustering keys, static columns, a replication
+factor and quorum sizes chosen so the API survives a dead node) and ran one pytest file against both
+versions. The other was a gRPC service that took in weather-station records and favoured accepting writes
+over consistent reads. Here both work on the bars. What I added: the schema comes from the queries and is
+a migration file applied by an init service; a loader reads the Spark extract from HDFS with prepared
+statements and bounded concurrency, can be run twice without changing anything, and checks what it wrote
+against the extract's own rollups; the MySQL and Cassandra backends are one interface, and a parity test
+sends the same requests to both and compares the answers byte for byte; the tests stop and kill Cassandra
+nodes while the API and the ingest service are running and assert what still works; a script prints the
+availability table for 0, 1 and 2 dead nodes; and a Kafka consumer keeps a latest-quote table current from
+the bars topic.
 
 ## Running stage 1 (ingest)
 
@@ -138,7 +150,96 @@ changes it. For a local model run Ollama on the host and add `--backend ollama` 
 and the serving extract against the running stack and checks each against MySQL or the plans.
 `python bench/run_bench.py spark --reps 1` runs the stage 2 measurements into `bench/scratch/`.
 
-### Tests
+## Running stage 3 (serving)
+
+This needs the stage 1 data in HDFS and the serving extract from stage 2 (`jobs.py serving`), so run
+those first. Spark and Kafka are not needed after that; stop them to leave room. The serving profile adds
+about 4.6 GB of container limits (three Cassandra nodes at 1.25 GB each, the rest small); with MySQL and
+HDFS that is about 7 GB, so give the Docker VM 8 GB or more.
+
+```
+docker compose --profile analytics stop driver spark-worker-1 spark-worker-2 spark-master metastore
+docker compose stop kafka-1 kafka-2 kafka-3 producer sink backfill
+docker compose up -d mysql namenode datanode1 datanode2 datanode3
+docker compose --profile serving up -d --build api-mysql api-cassandra ingest
+```
+
+The last line also starts the three Cassandra nodes one after another (a couple of minutes) and the init
+job that creates the keyspaces `prod` and `test` (replication factor 3), the matching MySQL databases and
+the tables; the APIs and the ingest service wait for it. Load the extract into both backends:
+
+```
+docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.loader --backend cassandra
+docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.loader --backend mysql
+```
+
+Each should end with `loaded 130000 rows (50 tickers) into cassandra/prod at <n> rows/s; 0 verify problems`
+(and the same for mysql). Then try the API; port 8400 is MySQL, 8401 is Cassandra, and both give the same answers:
+
+```
+curl -s localhost:8401/prod/api/companies | head -c 300
+curl -s -X POST localhost:8401/test/api/companies/ACME -H 'content-type: application/json' \
+  -d '{"name": "Acme Corp", "sector": "Energy", "exchange": "NYSE"}'
+curl -s -X PUT localhost:8401/test/api/companies/ACME/records/2024-01-02 -H 'content-type: application/json' \
+  -d '{"open": 10, "high": 12, "low": 9.5, "close": 11, "volume": 5000}'
+curl -s localhost:8401/test/api/companies/ACME/records/monthly
+```
+
+The endpoints and the status codes are listed in `docs/CONTRACT.md`. The ingest service listens on
+127.0.0.1:8410; the client runs inside the network:
+
+```
+docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.ingest_client --keyspace test probe
+```
+
+`probe` makes one write, one bulk write and one read and prints the status of each. To see the consistency
+levels work, stop a node (`docker stop market-data-pipeline-cassandra-2-1`) and probe again: the writes still
+succeed and `GetTicks` answers `UNAVAILABLE` with "consistency ALL needs 3 replicas, 2 alive". The REST API
+reads and writes at QUORUM, so with one node down it keeps working and a read still sees the write before it;
+with two nodes down it answers 503. `docker start` brings the node back.
+
+The latest-quote consumer needs Kafka back up:
+
+```
+docker compose up -d kafka-1 kafka-2 kafka-3 kafka-init
+docker compose --profile serving-quotes up -d quotes
+docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.quotes --check
+```
+
+### Stage 3 tests
+
+The unit tests need no cluster (`pytest tests/serving`, also part of plain `pytest`). The integration
+tests need the stack above and the loaded extract:
+
+```
+python scripts/serving_test.py                 # empties test, loads prod, runs everything below
+python scripts/serving_test.py --skip-faults   # without the tests that stop nodes
+pytest integration/serving/test_api.py         # the REST suite alone, once per backend
+```
+
+`test_api.py` has no knowledge of which backend it is talking to; the fixture runs each test against MySQL
+and then Cassandra. `test_parity.py` sends the same requests to both and compares the responses.
+`test_node_down.py` kills a node (and, separately, stops it cleanly) and checks that QUORUM writes and the
+reads right after them succeed, that creating a company still works, and that with two nodes down the API
+says 503 and the refused write left nothing behind. `test_ingest_availability.py` does the 0, 1 and 2 nodes
+down matrix for the ingest RPCs and checks that every tick acknowledged during the outage is readable at ALL
+afterwards. The node tests take a few minutes because Cassandra needs about twenty seconds to notice a
+crashed node and under a minute to come back. For the full table, including the REST endpoints:
+
+```
+python scripts/serving_faults.py matrix
+```
+
+Stage 3 measurements (the final runs need five repetitions and a quiet machine):
+
+```
+python bench/run_bench.py serving-latency --reps 5   # request latency at ONE, QUORUM and ALL
+python bench/run_bench.py serving-load --reps 5      # loader rows/s, by concurrency and batch size
+python bench/run_bench.py serving-api --reps 5       # REST latency over both backends
+python bench/run_bench.py serving-matrix --reps 5    # the availability table, repeated
+```
+
+## Tests
 
 ```
 pip install -r requirements-dev.txt
@@ -157,7 +258,7 @@ or `pip install -r requirements-spark.txt` on a machine with JDK 17+, which is w
 runs the checker and the backfill RPCs against it, tampers with the output to confirm the checker
 notices, and tears the stack down (`--keep` leaves it up, `--faults` adds the drills below).
 
-### Fault drills
+## Fault drills
 
 ```
 python scripts/faults.py datanode     # kill a DataNode while the aggregate RPC is being called
@@ -168,10 +269,11 @@ python scripts/faults.py producer-crash   # kill the producer at random moments 
 
 Each ends by running the checker where it applies and exits non-zero if anything is off.
 
-### Tear down
+## Tear down
 
 ```
-docker compose --profile live --profile tools --profile debug --profile analytics down -v
+docker compose --profile live --profile tools --profile debug --profile analytics --profile serving \
+  --profile serving-tools --profile serving-quotes down -v
 ```
 
 `docs/CONTRACT.md` lists the schemas, topic, HDFS paths, service names, ports and environment
@@ -203,6 +305,21 @@ repetitions each, on a quiet machine) write CSVs to `bench/results/`.
   the split and the baselines work; it says nothing about real markets.
 - The text-to-SQL question set is small, written by me for this schema, and a strong model may pass
   all of it; scoring is strict about column order and extra columns.
+- The three Cassandra nodes share one machine and one disk, and with replication factor 3 on three nodes
+  every node holds every row. Nothing here shows how the schema behaves when data is spread over many
+  nodes, and "a node is down" means a container was killed, not that a network or a disk failed.
+- Listing the companies is a scan over all partitions (`SELECT DISTINCT`), and the sector or exchange filter
+  runs in the application. That is fine for 50 tickers and not for tens of thousands.
+- The monthly endpoint reads every daily row of the ticker (up to the 2600 loaded) and groups them in the
+  application. Nothing is cached.
+- Creating a company is a lightweight transaction, but the loader and the bar writes touch the same
+  partitions with ordinary writes; Cassandra's documentation advises against mixing the two on one table.
+  Nothing in the API can change or delete a company or a bar once written, which keeps that mix harmless here.
+- A read at ALL (the ingest service's `GetTicks`) fails as soon as one replica is slow or down, and takes
+  as long as the slowest replica; that is the trade the service is built around, not a defect.
+- Prices are rounded to four places on the way in because MySQL stores DECIMAL(12,4); Cassandra holds a
+  double, so the rounding is what keeps the two backends identical.
+- The API has no authentication and the connections are plaintext.
 - The Hive schema script is Apache Hive's own (see its header); the metastore is the 2.3.10 server
   that Spark bundles, which is old, and DataNucleus cannot create its schema on MySQL 8.
 
@@ -213,4 +330,7 @@ repetitions each, on a quiet machine) write CSVs to `bench/results/`.
   GROUP BY and join on an inflated table, cached against uncached, the model metrics and depth sweep
   (with the plot from `bench/plot_depth_sweep.py`), and the text-to-SQL accuracy and latency; results go
   in `bench/results/` and in the section above.
-- Stage 3: Cassandra serving tier and REST API, reading `/market/serving`.
+- Stage 3 measurements: at least five repetitions each of request latency at ONE, QUORUM and ALL (writes,
+  a single row, a 30-day range), loader rows per second by concurrency and batch size for Cassandra and for
+  MySQL, REST latency over both backends, and the availability table for 0, 1 and 2 nodes down; results go
+  in `bench/results/` and in the section above.

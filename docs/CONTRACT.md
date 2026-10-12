@@ -1,8 +1,9 @@
 # What later stages can rely on
 
-This describes stages 1 and 2 as built: the MySQL schema, the Kafka topic, the files on HDFS, the
-Hive tables and the serving extract, the service names and ports, and the environment variables. If
-the code and this file disagree, the code is right and this file has a bug.
+This describes stages 1 to 3 as built: the MySQL schema, the Kafka topic, the files on HDFS, the
+Hive tables and the serving extract, the Cassandra keyspaces, the REST API and the tick ingest
+service, the service names and ports, and the environment variables. If the code and this file
+disagree, the code is right and this file has a bug.
 
 The data is synthetic. A seeded generator produces it; nothing here is real market data.
 
@@ -17,8 +18,11 @@ with `project_directory: .` so relative paths in them are relative to the repo r
 | `deploy/compose/streaming.yaml` | `kafka-1..3`, `kafka-init`, `producer`, `sink`; profile `debug`: `debug-consumer` |
 | `deploy/compose/backfill.yaml` | `backfill` |
 | `deploy/compose/analytics.yaml` | all in profile `analytics`: `metastore-init` (one shot), `metastore`, `spark-master`, `spark-worker-1`, `spark-worker-2`, `driver` |
+| `deploy/compose/serving.yaml` | profile `serving`: `cassandra-1..3`, `serving-init` (one shot), `api-mysql`, `api-cassandra`, `ingest`; profile `serving-quotes`: `quotes`; profile `serving-tools`: `serving-tools` |
 
-Stage 3 adds `deploy/compose/serving.yaml` as one more `include:` entry in `compose.yaml`.
+Stage 3 added `deploy/compose/serving.yaml` as the last `include:` entry in `compose.yaml`. Its Python
+services use the image `mdp-serving:local` (`deploy/images/serving/Dockerfile`: the app image plus
+`requirements-serving.txt`: the Cassandra driver, Flask, gunicorn); the stage 1 image is unchanged.
 
 - All services share the default network `market-data-pipeline_default` and reach each other by
   service name.
@@ -51,6 +55,17 @@ Stage 3 adds `deploy/compose/serving.yaml` as one more `include:` entry in `comp
 - `driver` mounts the Google application default credentials file read-only at `/run/gcp/adc.json`
   from the host path in `GCP_ADC_FILE` (default: an empty placeholder, which the Vertex backend reports
   as missing credentials). It also mounts `./tests` at `/app/tests` so the Spark tests can run there.
+- The `serving` profile adds 4608 MB (`cassandra-1..3` 1280 each, `api-mysql` 192, `api-cassandra` 256,
+  `ingest` 192, `serving-init` 128 and exits); `serving-tools` is 512 and `quotes` 256. Start only
+  what is needed: `docker compose --profile serving up -d api-mysql api-cassandra ingest` brings up
+  MySQL, the three Cassandra nodes, the init job and those three services, and nothing else. The
+  loader and the drills also need HDFS (`namenode`, `datanode1..3`); Kafka only for `quotes`.
+- Cassandra runs as `cassandra:5.0.9` with `MAX_HEAP_SIZE=512M`, `HEAP_NEWSIZE=128M`, 16 tokens per
+  node, `GossipingPropertyFileSnitch` (datacenter `dc1`), nodes joining one after another. The JVM
+  flags in `JVM_EXTRA_OPTS` cap direct memory, metaspace, the code cache and the GC thread counts,
+  which would otherwise follow the host's 24 cores. A node uses about 970 MB at rest. Each node's
+  health check passes when `nodetool status` shows at least as many `UN` lines as nodes started so
+  far, so `cassandra-3` is healthy only when all three are `UN`.
 
 ## Ports
 
@@ -73,15 +88,25 @@ Stage 2 owns 8360-8399 and publishes four, all on 127.0.0.1:
 | 8362 | `spark-worker-2:8081` | worker UI |
 | 8365 | `driver:4040` | UI of the running application (only while a job runs) |
 
+Stage 3 owns 8400-8449 and publishes three, all on 127.0.0.1:
+
+| host | container | what |
+| --- | --- | --- |
+| 8400 | `api-mysql:8000` | REST API over MySQL |
+| 8401 | `api-cassandra:8000` | REST API over Cassandra |
+| 8410 | `ingest:50061` | gRPC tick ingest |
+
 The metastore (`metastore:9083`) and the Spark master (`spark-master:7077`) are inside the network only.
 Inside the network: Kafka brokers `kafka-N:9092`, NameNode RPC `namenode:9000`, WebHDFS
-`namenode:9870`, DataNode HTTP `datanodeN:9864`, DataNode transfer `datanodeN:9866`.
+`namenode:9870`, DataNode HTTP `datanodeN:9864`, DataNode transfer `datanodeN:9866`, Cassandra
+`cassandra-N:9042` (the nodes publish nothing to the host; use `docker compose exec cassandra-1 cqlsh`).
 
 ## MySQL
 
 Host `mysql`, database `market`, user `mdp`, password `mdp` (root password `mdp-root`, overridable
 with `MDP_MYSQL_ROOT_PASSWORD`). MySQL 8.4. Stage 2 adds a second database, `metastore` (latin1, all
-privileges for `mdp`), which holds the Hive metastore tables and nothing else. The schema is `sql/schema.sql`; it is applied by the
+privileges for `mdp`), which holds the Hive metastore tables and nothing else. Stage 3 adds `api_prod` and
+`api_test` (the REST API's MySQL backend, see "Serving tier"). The schema of `market` is `sql/schema.sql`; it is applied by the
 generator, not by the MySQL image, so tables exist only after the `loader` service has run.
 
 ```
@@ -232,6 +257,109 @@ sqrt(252)), `max_drawdown` double (the most negative close-over-running-peak min
   (answered from the source, cache could not be written). Unknown ticker is `NOT_FOUND`; HDFS or
   MySQL trouble is `UNAVAILABLE`.
 
+## Serving tier
+
+### Cassandra
+
+Keyspaces `prod` and `test`, `SimpleStrategy`, replication factor 3 (so every node holds every row). The
+tables come from `sql/cassandra/001_serving.cql`, which carries a `${keyspace}` placeholder and is applied
+once per keyspace by `serving-init`; every statement is `IF NOT EXISTS`, so running it again is harmless.
+
+| table | primary key | what |
+| --- | --- | --- |
+| `daily_bars` | `((ticker), trade_date)` clustering `trade_date DESC` | `open` `high` `low` `close` double, `volume` bigint; **static** `name` `sector` `exchange` text, the company |
+| `ticks` | `((ticker, day), ts_us, producer)` clustering `ts_us DESC, producer ASC` | `price` double, `size` bigint; `day` is the UTC date, `ts_us` microseconds since the epoch in a bigint |
+| `latest_quote` | `ticker` | `trade_date`, `close`, `volume`, `bar_id` of the newest bar |
+
+A company exists when its partition has the static columns, with or without bars. "List the companies" is
+`SELECT DISTINCT ticker, name, sector, exchange` (partition key and static columns only), filtered by sector or
+exchange in the application: there is no lookup table by sector, which would need a second write that cannot be
+made atomic with the first.
+
+### MySQL backend
+
+`serving-init` uses the root password (`MDP_MYSQL_ROOT_PASSWORD`, default `mdp-root`) to create the databases
+`api_prod` and `api_test` and grant them to `mdp`, then applies `sql/mysql/001_serving.sql` to each:
+`companies(ticker PK, name, sector, exchange)` and `daily_bars(ticker, trade_date, open, high, low, close
+DECIMAL(12,4), volume BIGINT UNSIGNED, PK (ticker, trade_date), FK to companies)`. They are separate from
+`market.symbols` and `market.bars`.
+
+### Loader
+
+`python -m mdp.serving.loader [--backend cassandra|mysql] [--db prod|test] [--concurrency 64]
+[--batch-size 50] [--skip-verify] [--json]`, run as
+`docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.loader`.
+It reads `/market/serving/_manifest.json` (a missing manifest, or `daily_bars` files whose rows do not add up to
+the manifest's count, stop it with "extract incomplete"), then for each `daily_bars` part file upserts the
+companies and then the bars. Prices go through the same four-place rounding as API input. The writes are plain
+upserts, so a second run changes nothing. Cassandra writes are at QUORUM with `--concurrency` requests in
+flight, each an unlogged batch of up to `--batch-size` rows of one ticker (one row per request when it is 1);
+MySQL uses 2000-row `executemany` chunks. Unless `--skip-verify` is given it then reads every ticker back
+through the store and compares the row count, first and last date and mean close with `symbol_rollups` and
+every month's trading days and average close with `monthly_bars` (within the 4-place rounding); exit status 1 if
+anything differs. The result line has `rows`, `write_seconds` (time spent writing, not reading HDFS),
+`wall_seconds` and `rows_per_s`.
+
+### REST API
+
+Flask under gunicorn (2 workers, 4 threads) on `api-mysql` and `api-cassandra`, the same code over either
+backend, `API_BACKEND=mysql|cassandra`. `<db>` is `prod` or `test` (MySQL `api_<db>`, keyspace `<db>`); any
+other name is 404. Bodies and answers are JSON; errors are `{"error": "..."}`.
+
+| request | answer |
+| --- | --- |
+| `GET /<db>/api/companies[?sector=&exchange=]` | `[{"ticker","name","sector","exchange"}]` sorted by ticker |
+| `GET /<db>/api/companies/<ticker>` | the company, or 404 |
+| `POST /<db>/api/companies/<ticker>` body `{"name","sector","exchange"}` | 201 with the company and a `Location` header; 409 if it exists |
+| `PUT /<db>/api/companies/<ticker>/records/<YYYY-MM-DD>` body `{"open","high","low","close","volume"}` | 200 with the record; creates or overwrites; 404 if the company does not exist |
+| `GET /<db>/api/companies/<ticker>/records[?start=&end=&limit=]` | `[{"trade_date","open","high","low","close","volume"}]` oldest first, bounds inclusive; `[]` for a company with no records; 404 for an unknown one |
+| `GET /<db>/api/companies/<ticker>/records/monthly[?start=&end=]` | `[{"month":"YYYY-MM","trading_days","avg_high","avg_low","avg_close","total_volume"}]` oldest first |
+| `GET /healthz` | `{"ok": true, "backend": ...}`; does not touch the database |
+
+Validation (400): tickers are 1 to 8 characters of `A-Z`, digits and `.`, starting with a letter; dates are
+`YYYY-MM-DD` between 1900 and 2999; prices are JSON numbers above 0 and up to 99999999, `low <= open, close <=
+high`; volume is a whole number from 0 up to 2^63-1; no unknown fields; `limit` is 1 to 100000. Prices are rounded
+half-even to four places before they are stored (what DECIMAL(12,4) holds), so both backends answer with the
+same number. **Monthly averages are computed in the application from the daily rows, for both backends**:
+Cassandra cannot GROUP BY a clustering column, and a stored month would go stale as soon as a record is added
+through the API. Averages are rounded to four places. 503 `{"error": "backend unavailable"}` means the backend
+could not serve the request: Cassandra `Unavailable`, a timeout or no reachable node, or MySQL not answering.
+
+Consistency: every Cassandra statement of the API runs at QUORUM (two of three replicas), and creating a company
+is a lightweight transaction (`IF NOT EXISTS`, serial consistency SERIAL, commit at QUORUM). A read after a
+write therefore meets at least one replica that has the write (R + W = 4 > 3), and everything keeps working with
+one node down; with two down every operation is 503.
+
+### Tick ingest
+
+`mdp.v1.Ingest` on `ingest:50061`, definition in `proto/mdp/v1/ingest.proto`. Metadata `x-keyspace` is `prod`
+(default) or `test`. `PutTick(Tick)` and the client-streaming `PutTicks(stream Tick)` write at consistency ONE;
+`GetTicks(ticker, day, limit)` reads at ALL, newest first. A tick is keyed by `(ticker, day, ts_us, producer)`, so
+sending a batch again overwrites itself. Status codes: `INVALID_ARGUMENT` (bad ticker, time, price, size,
+producer, day or limit, or an unknown keyspace; nothing is written), `UNAVAILABLE` (the coordinator reports too
+few live replicas; the message says which level and how many, for example "consistency ALL needs 3 replicas, 2
+alive"; or no node can be reached), `DEADLINE_EXCEEDED` (replicas did not answer in time). With one live replica
+the writes still succeed and the read is refused; with all three up everything works; after nodes return, a
+read at ALL sees every tick that was acknowledged while they were away.
+
+### Latest quotes
+
+`python -m mdp.serving.quotes [--db prod] [--from-beginning] [--exit-when-idle S]` (service `quotes`, profile
+`serving-quotes`, needs Kafka) consumes `market.bars.v1` in group `mdp-quotes` with `isolation.level=read_committed`,
+keeps the newest bar per ticker of each poll, writes `latest_quote` at QUORUM with the trade date as the
+write timestamp (so replays and out-of-order bars cannot move a quote backwards) and then commits offsets.
+`--check` compares the table with the newest row of `daily_bars` for each ticker.
+
+### Tests and drills
+
+`pytest` (unit tests, `tests/serving`) needs no cluster. `integration/serving` needs the stack:
+`python scripts/serving_test.py` brings it up, empties `test`, loads `prod` into both backends, runs the REST
+suite once per backend (`test_api.py`, unchanged between them), the parity tests (`test_parity.py`: the same
+requests give identical answers), the ingest tests, and then the destructive ones (`test_node_down.py` kills
+or stops a Cassandra node and checks QUORUM reads and writes; `test_ingest_availability.py` does the 0, 1, 2
+nodes down matrix for the ingest RPCs). `python scripts/serving_faults.py matrix` prints the availability table
+for both the ingest RPCs and the REST endpoints.
+
 ## Environment variables
 
 Defaults for the containers are in `deploy/env/app.env`; `mdp.config.Settings.from_env` reads them.
@@ -253,6 +381,11 @@ Defaults for the containers are in `deploy/env/app.env`; `mdp.config.Settings.fr
 | `GOOGLE_CLOUD_LOCATION` | `global` | Vertex backend |
 | `MDP_SQL_BACKEND` `MDP_SQL_MODEL` | `vertex`, `gemini-3.5-flash` | text-to-SQL; `gemini-2.5-*` is refused (retired 2026-10-20) |
 | `OLLAMA_HOST` `OLLAMA_MODEL` | `http://host.docker.internal:11434`, unset | Ollama backend |
+| `API_BACKEND` | `mysql` or `cassandra`, set per service | REST API |
+| `CASSANDRA_HOSTS` `CASSANDRA_PORT` `CASSANDRA_TIMEOUT` | `cassandra-1,cassandra-2,cassandra-3` `9042` `5` (seconds) | everything that talks to Cassandra |
+| `INGEST_PORT` | `50061` | ingest server |
+| `MYSQL_ROOT_PASSWORD` | `mdp-root` (from `MDP_MYSQL_ROOT_PASSWORD`) | `serving-init` only |
+| `MDP_API_MYSQL` `MDP_API_CASSANDRA` `MDP_INGEST` | `http://127.0.0.1:8400` `http://127.0.0.1:8401` `127.0.0.1:8410` | host-side integration tests |
 
 `SINK_CRASH_PROB` makes the sink kill itself with that probability after writing a batch file and
 before writing its checkpoint; only the fault drill sets it.
@@ -264,6 +397,11 @@ before writing its checkpoint; only the fault drill sets it.
 `producer`, `admin`, `debug`, `trusted`), `backfill` (`export`, `blocks`, `summary`, `server`, `client`),
 `check.verify` (HDFS against MySQL), `faults` and `bench` (in-container halves of the drills and
 benchmarks), `v1` (generated protobuf code, not committed).
+
+Stage 3, `mdp.serving` (Python 3.13, image `mdp-serving:local`): `settings`, `cluster` (one Cassandra session),
+`models`, `validate`, `monthly`, `store` (the interface both backends implement), `cassandra_store`,
+`mysql_store`, `backends`, `api` and `wsgi`, `init_schema`, `loader`, `ingest_server` and `ingest_client`,
+`quotes`; `mdp.bench.serving_latency` is the in-container half of the latency benchmark.
 
 Stage 2, `mdp.analytics` (Python 3.10, runs in the Spark image): `names` (table names, paths), `session`,
 `compact`, `question`, `bucketing`, `caching`, `features`, `model`, `serving`, `scale` (stack copies of
