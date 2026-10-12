@@ -44,10 +44,16 @@ def ensure_topics(cfg: Settings) -> None:
                 raise
             print(f"admin: {topic} already exists", flush=True)
 
-    meta = admin.list_topics(cfg.topic, timeout=10).topics[cfg.topic]
-    if len(meta.partitions) != cfg.partitions:
-        raise RuntimeError(
-            f"{cfg.topic} has {len(meta.partitions)} partitions, expected {cfg.partitions}")
+    # right after creation a fresh cluster can still report the topic with no partitions
+    deadline = time.monotonic() + 30
+    while True:
+        meta = admin.list_topics(cfg.topic, timeout=10).topics[cfg.topic]
+        if len(meta.partitions) == cfg.partitions:
+            return
+        if time.monotonic() > deadline:
+            raise RuntimeError(
+                f"{cfg.topic} has {len(meta.partitions)} partitions, expected {cfg.partitions}")
+        time.sleep(1)
 
 
 def delete_topics(cfg: Settings) -> None:
