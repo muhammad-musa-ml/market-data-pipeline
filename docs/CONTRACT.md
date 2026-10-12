@@ -192,7 +192,7 @@ two tables bucketed the same way needs no shuffle (`jobs.py bucketing` shows the
 ## Serving extract
 
 `jobs.py serving` reads the Hive tables and writes three Parquet datasets under `/market/serving`
-(replication 3, 8 files each, a ticker's rows all in one file, sorted within the file) and then
+(replication 3; 8 part files each plus Spark's empty `_SUCCESS` marker; a ticker's rows all in one file, sorted within the file) and then
 `/market/serving/_manifest.json`. Every run overwrites all of it; the manifest is written last, so a
 missing manifest, or one whose `source_rows` disagrees with the data, means a run did not finish.
 The manifest reads `{"built_at", "source_table", "source_rows", "source_max_id", "trusted_files",
