@@ -7,7 +7,6 @@ UNAVAILABLE instead of answering from a replica that may not have seen every wri
 import datetime as dt
 import logging
 import math
-import os
 import signal
 import sys
 from collections.abc import Iterable

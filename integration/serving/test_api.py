@@ -36,7 +36,9 @@ def test_list_contains_the_company_and_filters(api, company):
 
 
 def test_non_ascii_text_round_trips(api, ticker):
-    name = "Société Générale – 東京"
+    # accents, an en dash and two CJK characters, spelled as code points so the file stays ASCII
+    name = "".join(map(chr, [0x53, 0x6f, 0x63, 0x69, 0xe9, 0x74, 0xe9, 0x20, 0x47, 0xe9, 0x6e, 0xe9, 0x72, 0x61,
+                            0x6c, 0x65, 0x20, 0x2013, 0x20, 0x6771, 0x4eac]))
     assert api.post(f"companies/{ticker}", {**COMPANY, "name": name}).status_code == 201
     assert api.get(f"companies/{ticker}").json()["name"] == name
 
