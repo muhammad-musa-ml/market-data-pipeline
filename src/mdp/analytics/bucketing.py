@@ -11,6 +11,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
 from mdp.analytics.names import BARS, LAB_DB, N_BUCKETS
+from mdp.analytics.scale import inflate
 from mdp.analytics.session import count_exchanges, plan_text
 
 CONF = {"spark.sql.adaptive.enabled": "false", "spark.sql.autoBroadcastJoinThreshold": "-1"}
@@ -23,10 +24,10 @@ def _write(df, table: str, bucketed: bool) -> None:
     w.saveAsTable(table)
 
 
-def build_tables(spark: SparkSession, source: str = BARS) -> dict[str, str]:
+def build_tables(spark: SparkSession, source: str = BARS, copies: int = 1) -> dict[str, str]:
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {LAB_DB}")
-    bars = spark.table(source).select("ticker", "trade_date", "close", "volume")
-    stats = spark.table(source).groupBy("ticker").agg(
+    bars = inflate(spark.table(source).select("ticker", "trade_date", "close", "volume"), copies)
+    stats = bars.groupBy("ticker").agg(
         F.avg("close").alias("avg_close"), F.count("*").alias("n_bars"))
     names = {
         "bars_bucketed": f"{LAB_DB}.bars_bucketed", "bars_flat": f"{LAB_DB}.bars_flat",
@@ -59,11 +60,12 @@ def timed(spark: SparkSession, query: str, reps: int) -> list[float]:
     return out
 
 
-def run(spark: SparkSession, reps: int = 3, source: str = BARS) -> dict:
+def run(spark: SparkSession, reps: int = 3, source: str = BARS, copies: int = 1) -> dict:
     for key, value in CONF.items():
         spark.conf.set(key, value)
-    build_tables(spark, source)
-    result: dict = {"buckets": N_BUCKETS, "variants": {}}
+    build_tables(spark, source, copies)
+    result: dict = {"buckets": N_BUCKETS, "copies": copies,
+                    "rows": spark.table(f"{LAB_DB}.bars_flat").count(), "variants": {}}
     for suffix in ("bucketed", "flat"):
         variant = {}
         for name, query in queries(suffix).items():

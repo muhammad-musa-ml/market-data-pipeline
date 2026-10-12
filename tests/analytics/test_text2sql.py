@@ -104,12 +104,15 @@ def test_scoring_a_backend_that_returns_the_gold_sql(spark, warehouse):
         name = "oracle"
 
         def complete(self, text):
+            if "Question: " not in text:
+                return "ok"  # the warm-up prompt
             q = text.rsplit("Question: ", 1)[1].strip()
             return fenced(next(c.gold for c in CASES if c.question == q))
 
     out = evaluate.run(spark, Oracle(), CASES, repairs=0)
     assert out["correct"] == out["questions"] == len(CASES)
     assert out["accuracy"] == 1.0 and out["first_try_accuracy"] == 1.0
+    assert out["warmup_seconds"] >= 0
 
 
 def test_scoring_marks_wrong_answers_and_errors(spark, warehouse):

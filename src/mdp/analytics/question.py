@@ -62,6 +62,7 @@ def run(spark: SparkSession) -> dict:
     out: dict = {}
     answers = {}
     for name, fn in (("rdd", with_rdd), ("dataframe", with_dataframe), ("sql", with_sql)):
+        fn(spark)  # warm-up, so the order of the three does not decide which one pays for cold executors
         t0 = time.time()
         answers[name] = fn(spark)
         out[f"{name}_seconds"] = round(time.time() - t0, 2)

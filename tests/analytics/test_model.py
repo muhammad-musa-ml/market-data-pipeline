@@ -63,6 +63,15 @@ def test_depth_is_chosen_without_looking_at_the_test_period(spark, clustered):
     assert test.where(f"trade_date <= DATE '{max_train}'").count() == 0
 
 
+def test_choose_depth_takes_the_shallowest_of_the_near_ties():
+    rows = [dict(depth=d, val_r2=v) for d, v in [(1, 0.10), (2, 0.157), (3, 0.183), (4, 0.194),
+                                                (5, 0.1963), (6, 0.1961), (7, 0.195), (8, 0.185)]]
+    assert model.choose_depth(rows) == 4
+    assert model.choose_depth(list(reversed(rows))) == 4
+    assert model.choose_depth([dict(depth=3, val_r2=-0.1), dict(depth=9, val_r2=-0.3)]) == 3
+    assert model.choose_depth(rows, tolerance=0.0) == 5
+
+
 def test_importances_name_the_volatility_features(spark, clustered):
     train, _, _, _ = clustered
     m = model.pipeline(6).fit(train)

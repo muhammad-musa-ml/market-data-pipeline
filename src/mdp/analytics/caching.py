@@ -10,6 +10,7 @@ from pyspark.sql import functions as F
 
 from mdp.analytics import features as feat
 from mdp.analytics.names import BARS, SYMBOLS
+from mdp.analytics.scale import inflate
 
 
 def aggregates(df: DataFrame) -> tuple:
@@ -23,8 +24,8 @@ def timeit(df: DataFrame) -> float:
     return round(time.time() - t0, 3)
 
 
-def run(spark: SparkSession, repeats: int = 3, sector: str = "Technology") -> dict:
-    df = (feat.daily_features(spark.table(BARS), spark.table(SYMBOLS))
+def run(spark: SparkSession, repeats: int = 3, sector: str = "Technology", copies: int = 1) -> dict:
+    df = (feat.daily_features(inflate(spark.table(BARS), copies), spark.table(SYMBOLS))
           .where(F.col("sector") == sector))
     aggregates(df)  # warm-up: the first job on a fresh cluster also pays for starting executors
     uncached = [timeit(df) for _ in range(repeats)]
@@ -33,5 +34,5 @@ def run(spark: SparkSession, repeats: int = 3, sector: str = "Technology") -> di
     fill = timeit(df)  # the first action pays for materialising the cache
     cached = [timeit(df) for _ in range(repeats)]
     df.unpersist()
-    return {"sector": sector, "uncached_seconds": uncached, "cache_fill_seconds": fill,
+    return {"sector": sector, "copies": copies, "uncached_seconds": uncached, "cache_fill_seconds": fill,
             "cached_seconds": cached}

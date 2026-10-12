@@ -68,6 +68,14 @@ def depth_sweep(train: DataFrame, test: DataFrame, depths: list[int] = DEPTHS) -
     return [fit_score(train, test, d)[1] for d in depths]
 
 
+def choose_depth(rows: list[dict], tolerance: float = 0.005) -> int:
+    """The shallowest depth whose validation R^2 is within `tolerance` of the best. Neighbouring
+    depths often tie to the third decimal, and which of them wins would otherwise depend on the
+    order floating-point sums happen to be added in."""
+    best = max(r["val_r2"] for r in rows)
+    return min(r["depth"] for r in rows if r["val_r2"] >= best - tolerance)
+
+
 def pick_depth(train: DataFrame, depths: list[int] = CANDIDATES, horizon: int = feat.HORIZON) -> tuple[int, list[dict]]:
     """Depth with the best R^2 on the last fifth of the training period, which is held out in time
     (with the same gap as the real split), so the test set takes no part in choosing it."""
@@ -76,7 +84,7 @@ def pick_depth(train: DataFrame, depths: list[int] = CANDIDATES, horizon: int = 
     rows = [dict(depth=d, val_r2=r2(pipeline(d).fit(fit_part).transform(val_part))) for d in depths]
     fit_part.unpersist()
     val_part.unpersist()
-    return max(rows, key=lambda r: r["val_r2"])["depth"], rows
+    return choose_depth(rows), rows
 
 
 def importances(model: PipelineModel) -> dict[str, float]:

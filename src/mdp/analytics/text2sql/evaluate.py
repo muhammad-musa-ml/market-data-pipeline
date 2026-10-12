@@ -61,11 +61,14 @@ def score_case(spark, backend, case: Case, schema: str, repairs: int = 1) -> dic
 
 def run(spark, backend, cases: list[Case] = CASES, repairs: int = 1) -> dict:
     schema = prompt.schema_text(spark)
+    t0 = time.time()
+    backend.complete("Reply with the word ok.")  # load the model and open the connection before timing
+    warmup = round(time.time() - t0, 2)
     rows = [score_case(spark, backend, c, schema, repairs) for c in cases]
     n = len(rows)
     secs = sorted(r["seconds"] for r in rows)
     return {
-        "backend": backend.name, "questions": n, "repairs": repairs,
+        "backend": backend.name, "questions": n, "repairs": repairs, "warmup_seconds": warmup,
         "correct": sum(r["correct"] for r in rows),
         "accuracy": round(sum(r["correct"] for r in rows) / n, 3),
         "first_try_accuracy": round(sum(r["first_try"] for r in rows) / n, 3),

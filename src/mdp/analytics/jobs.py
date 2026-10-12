@@ -31,8 +31,10 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("question", help="one question answered with RDD, DataFrame and SQL")
     b = sub.add_parser("bucketing", help="plans and timings, bucketed vs plain")
     b.add_argument("--reps", type=int, default=3)
+    b.add_argument("--inflate", type=int, default=1, help="stack this many shifted copies of the bars first")
     c = sub.add_parser("caching", help="repeated aggregations with and without cache()")
     c.add_argument("--repeats", type=int, default=3)
+    c.add_argument("--inflate", type=int, default=1, help="stack this many shifted copies of the bars first")
     m = sub.add_parser("ml", help="decision-tree volatility model, baselines, depth sweep")
     m.add_argument("--depths", type=int, nargs="+", default=model.DEPTHS)
     sub.add_parser("serving", help="write the extract stage 3 reads")
@@ -60,9 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.job == "question":
         result = question.run(spark)
     elif args.job == "bucketing":
-        result = bucketing.run(spark, args.reps)
+        result = bucketing.run(spark, args.reps, copies=args.inflate)
     elif args.job == "caching":
-        result = caching.run(spark, args.repeats)
+        result = caching.run(spark, args.repeats, copies=args.inflate)
     elif args.job == "ml":
         result = model.run(spark, depths=args.depths)
     elif args.job == "serving":
