@@ -1,0 +1,5 @@
+# Only for running the Spark tests outside the image (CI, or a host with Java 17+).
+-r requirements-dev.txt
+pyspark==4.2.0
+pandas==2.3.3
+pyarrow==26.0.0

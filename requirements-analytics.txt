@@ -1,0 +1,7 @@
+# Installed in the Spark image (python 3.10, so numpy and pandas are the last lines that support it).
+numpy==2.2.6
+pandas==2.3.3
+pyarrow==25.0.1
+requests==2.34.2
+google-genai==2.29.0
+pytest==9.1.1

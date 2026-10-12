@@ -1,10 +1,12 @@
 name: market-data-pipeline
 
-# Stage 2 adds deploy/compose/analytics.yaml and stage 3 deploy/compose/serving.yaml here.
+# Stage 3 adds deploy/compose/serving.yaml here.
 include:
   - path: deploy/compose/base.yaml
     project_directory: .
   - path: deploy/compose/streaming.yaml
     project_directory: .
   - path: deploy/compose/backfill.yaml
+    project_directory: .
+  - path: deploy/compose/analytics.yaml
     project_directory: .

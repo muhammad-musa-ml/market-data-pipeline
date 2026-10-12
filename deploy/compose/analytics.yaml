@@ -1,0 +1,114 @@
+# Spark standalone cluster, a Hive metastore on MySQL, and a driver container to run jobs from.
+# Everything is in profile "analytics" so the stage 1 stack is unchanged. To run it next to just
+# MySQL and HDFS (no Kafka):
+#   docker compose --profile analytics up -d metastore spark-master spark-worker-1 spark-worker-2 driver
+x-spark: &spark
+  image: mdp-spark:local
+  build:
+    context: .
+    dockerfile: deploy/images/spark/Dockerfile
+  profiles: [analytics]
+  env_file: deploy/env/app.env
+  dns_opt: ["timeout:1", "attempts:1"]
+
+services:
+  # Creates the metastore database next to the market one and loads the Hive schema into it the
+  # first time. Root is only used here.
+  metastore-init:
+    image: mysql:8.4
+    profiles: [analytics]
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        my() { mysql -h mysql -uroot -p"$${MYSQL_ROOT_PASSWORD}" "$$@"; }
+        my -e "CREATE DATABASE IF NOT EXISTS metastore CHARACTER SET latin1; GRANT ALL ON metastore.* TO 'mdp'@'%';"
+        n=$$(my -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'metastore'")
+        if [ "$$n" = 0 ]; then my metastore < /schema.sql; echo "metastore schema loaded"; fi
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MDP_MYSQL_ROOT_PASSWORD:-mdp-root}
+    volumes:
+      - ./deploy/images/spark/sql/hive-schema-2.3.0.mysql.sql:/schema.sql:ro
+    depends_on:
+      mysql: {condition: service_healthy}
+    restart: "no"
+    mem_limit: 64m
+
+  metastore:
+    <<: *spark
+    command: ["metastore"]
+    depends_on:
+      metastore-init: {condition: service_completed_successfully}
+      namenode: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9083'"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 15s
+    restart: on-failure
+    mem_limit: 512m
+
+  spark-master:
+    <<: *spark
+    command: ["master"]
+    hostname: spark-master
+    environment:
+      SPARK_DAEMON_MEMORY: 128m
+    ports:
+      - "127.0.0.1:8360:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080 > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    mem_limit: 384m
+
+  spark-worker-1: &worker
+    <<: *spark
+    command: ["worker"]
+    environment:
+      SPARK_DAEMON_MEMORY: 128m
+      SPARK_WORKER_CORES: "2"
+      SPARK_WORKER_MEMORY: 1g
+    ports:
+      - "127.0.0.1:8361:8081"
+    depends_on:
+      spark-master: {condition: service_healthy}
+    restart: on-failure
+    mem_limit: 1536m
+
+  spark-worker-2:
+    <<: *worker
+    ports:
+      - "127.0.0.1:8362:8081"
+
+  # Jobs run here in client mode: docker compose exec driver spark-submit /app/src/mdp/analytics/jobs.py <job>
+  # GCP_ADC_FILE is the application default credentials file on the host; only the text-to-SQL
+  # job with the Vertex backend reads it. The placeholder keeps the mount valid when it is unset.
+  driver:
+    <<: *spark
+    command: ["sleep", "infinity"]
+    hostname: driver
+    environment:
+      SPARK_LOCAL_HOSTNAME: driver
+      GOOGLE_APPLICATION_CREDENTIALS: /run/gcp/adc.json
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_QUOTA_PROJECT: ${GOOGLE_CLOUD_QUOTA_PROJECT:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-global}
+      MDP_SQL_BACKEND: ${MDP_SQL_BACKEND:-vertex}
+      MDP_SQL_MODEL: ${MDP_SQL_MODEL:-}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+    volumes:
+      - ${GCP_ADC_FILE:-./deploy/env/adc.placeholder.json}:/run/gcp/adc.json:ro
+      - ./tests:/app/tests:ro
+    ports:
+      - "127.0.0.1:8365:4040"
+    depends_on:
+      metastore: {condition: service_healthy}
+      spark-master: {condition: service_healthy}
+      spark-worker-1: {condition: service_started}
+      spark-worker-2: {condition: service_started}
+    mem_limit: 2048m
