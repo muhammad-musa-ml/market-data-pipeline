@@ -1,6 +1,8 @@
 """Create the databases, keyspaces and tables the serving tier uses. Safe to run repeatedly.
 
-    python -m mdp.serving.init_schema [--only mysql|cassandra]
+    python -m mdp.serving.init_schema [--only mysql|cassandra] [--reset-test]
+
+--reset-test empties the tables of the test database and keyspace (needs all three nodes up).
 
 The migration files are sql/mysql/*.sql and sql/cassandra/*.cql, applied in name order. The CQL
 files carry a ${keyspace} placeholder and are applied once per keyspace.
@@ -74,11 +76,33 @@ def init_cassandra(cfg: ServingSettings) -> None:
     session.cluster.shutdown()
 
 
+def reset_test(cfg: Settings, serving: ServingSettings, only: str | None) -> None:
+    if only != "cassandra":
+        conn = mysql.connector.connect(host=cfg.mysql_host, port=cfg.mysql_port, user=cfg.mysql_user,
+                                       password=cfg.mysql_password, database="api_test")
+        cur = conn.cursor()
+        for table in ("daily_bars", "companies"):  # bars first: they reference companies
+            cur.execute(f"DELETE FROM {table}")
+        conn.commit()
+        conn.close()
+        print("init: mysql api_test emptied", flush=True)
+    if only != "mysql":
+        session = cluster.connect(serving, wait=60)
+        for table in ("daily_bars", "ticks", "latest_quote"):
+            session.execute(f"TRUNCATE test.{table}", timeout=60)
+        session.cluster.shutdown()
+        print("init: cassandra keyspace test emptied", flush=True)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", choices=["mysql", "cassandra"])
+    ap.add_argument("--reset-test", action="store_true")
     args = ap.parse_args()
     serving = ServingSettings.from_env()
+    if args.reset_test:
+        reset_test(Settings.from_env(), serving, args.only)
+        return 0
     if args.only != "cassandra":
         init_mysql(Settings.from_env(), serving.mysql_root_password)
     if args.only != "mysql":
