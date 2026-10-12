@@ -132,7 +132,8 @@ services:
     restart: on-failure
     mem_limit: 192m
 
-  # Quote consumer: keeps latest_quote current from the bars topic. Needs Kafka up.
+  # Quote consumer: keeps latest_quote current from the bars topic. Needs Kafka up, and both profiles:
+  #   docker compose --profile serving --profile serving-quotes up -d quotes
   quotes:
     <<: *serving
     profiles: [serving-quotes]

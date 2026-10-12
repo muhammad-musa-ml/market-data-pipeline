@@ -202,7 +202,7 @@ The latest-quote consumer needs Kafka back up:
 
 ```
 docker compose up -d kafka-1 kafka-2 kafka-3 kafka-init
-docker compose --profile serving-quotes up -d quotes
+docker compose --profile serving --profile serving-quotes up -d quotes
 docker compose --profile serving-tools run --rm serving-tools python -m mdp.serving.quotes --check
 ```
 
