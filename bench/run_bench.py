@@ -1,4 +1,4 @@
-"""Measurement harness. Runs against a stack that is already up.
+"""Benchmark runner. Runs against a stack that is already up.
 
     python bench/run_bench.py producer --reps 5
     python bench/run_bench.py lag --reps 5 --rate 100 --seconds 60
