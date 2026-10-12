@@ -50,8 +50,19 @@ def ensure_topics(cfg: Settings) -> None:
             f"{cfg.topic} has {len(meta.partitions)} partitions, expected {cfg.partitions}")
 
 
+def delete_topics(cfg: Settings) -> None:
+    admin = AdminClient({"bootstrap.servers": cfg.kafka_bootstrap})
+    for topic, fut in admin.delete_topics([cfg.topic, cfg.progress_topic], operation_timeout=30).items():
+        fut.result()
+        print(f"admin: deleted {topic}", flush=True)
+
+
 def main() -> int:
-    ensure_topics(Settings.from_env())
+    cfg = Settings.from_env()
+    if sys.argv[1:] == ["delete"]:
+        delete_topics(cfg)
+    else:
+        ensure_topics(cfg)
     return 0
 
 

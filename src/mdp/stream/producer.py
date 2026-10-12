@@ -171,7 +171,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--poll-interval", type=float, default=float(e("PRODUCER_POLL_INTERVAL", 0.2)))
     ap.add_argument("--exit-when-idle", action="store_true")
     args = ap.parse_args(argv)
-    stats = run(Settings.from_env(), args.chunk, args.poll_interval, args.exit_when_idle)
+    stats = run(Settings.from_env(), args.chunk, args.poll_interval, args.exit_when_idle,
+                e("PRODUCER_TXN_ID", "mdp-bars-producer"))
     print(f"producer: done sent={stats.sent} last_id={stats.last_id} {stats.rate:,.0f} msg/s", flush=True)
     return 0
 
