@@ -44,7 +44,11 @@ def bring_up(build: bool) -> None:
     compose("up", "-d", *STAGE1_NEEDED, timeout=900)
     wait_healthy("namenode")
     say("starting Cassandra, the init job, both APIs and the ingest service")
-    compose(*PROFILES, "up", "-d", *(["--build"] if build else []), *SERVING, timeout=1800)
+    try:
+        compose(*PROFILES, "up", "-d", *(["--build"] if build else []), *SERVING, timeout=1800)
+    except subprocess.CalledProcessError as exc:
+        say("compose up failed:\n" + (exc.stderr or "")[-2500:])
+        raise
     for svc in ("api-mysql", "api-cassandra"):
         wait_healthy(svc)
     stack.wait_for(lambda: stack.docker("inspect", "-f", "{{.State.Running}}", stack.container_id("ingest")).stdout
