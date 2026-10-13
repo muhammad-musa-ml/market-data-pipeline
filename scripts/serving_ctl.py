@@ -61,10 +61,10 @@ def wait_states(expect_up: int, timeout: float = 240.0) -> dict[str, str]:
 
 
 def wait_down_seen(node: str, ip: str, timeout: float = 90.0) -> float:
-    """Seconds until a surviving node reports the node with this IP (read before it went down) as DN."""
+    """Seconds until every surviving node reports the node with this IP (read before it went down) as DN."""
     t0 = time.monotonic()
     survivors = [n for n in NODES if n != node and is_running(n)]
-    stack.wait_for(lambda: any(node_states(n).get(ip) == "DN" for n in survivors), timeout, interval=1.0,
+    stack.wait_for(lambda: all(node_states(n).get(ip) == "DN" for n in survivors), timeout, interval=1.0,
                    what=f"{node} to be seen DN")
     return time.monotonic() - t0
 
