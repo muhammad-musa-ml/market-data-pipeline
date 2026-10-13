@@ -78,6 +78,14 @@ def per_question(rows):
     return out
 
 
+def ml_metrics(rows):
+    out = table(rows, ["model"], ["test_r2", "test_rmse"])
+    chosen = [r for r in rows if r["model"] == "tree:validation-chosen"]
+    out += ["", "Depth chosen on the validation block, per repetition: "
+            + ", ".join(f"{r['depth']} (rep {r['rep']})" for r in chosen)]
+    return out
+
+
 def drills(rows):
     out = ["| drill | runs | bars inserted (per run) | rows on HDFS equal rows in MySQL | duplicates | gaps | value mismatches |",
            "|---|---|---|---|---|---|---|"]
@@ -124,8 +132,7 @@ SECTIONS = [
      lambda rows: table(rows, ["layout", "query", "exchanges"], ["seconds"])),
     ("caching", "Stage 2: cached against uncached aggregation, seconds",
      lambda rows: table(rows, ["phase"], ["seconds"])),
-    ("ml_metrics", "Stage 2: decision tree and baselines on the held-out period",
-     lambda rows: table(rows, ["model", "depth"], ["test_r2", "test_rmse"])),
+    ("ml_metrics", "Stage 2: decision tree and baselines on the held-out period", ml_metrics),
     ("ml_depth_sweep", "Stage 2: depth sweep",
      lambda rows: table(rows, ["depth"], ["train_r2", "test_r2", "fit_seconds"])),
     *[(f"text2sql_eval_{b}", f"Stage 2: text-to-SQL on {b}, 28 questions per run",

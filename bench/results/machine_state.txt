@@ -16,3 +16,39 @@ docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
 docker containers running (other projects, not mine): 9
 docker containers running (this project): 5
 
+before the stage 3 runs, UTC 2026-10-12T23:59:45
+cpu: 13th Gen Intel(R) Core(TM) i7-13700HX, 24 logical CPUs
+os: Windows-11-10.0.26200-SP0
+total memory GiB: 29.7, free GiB: 3.1
+cpu busy percent, five samples two seconds apart: 25, 16, 39, 33, 23
+docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
+docker containers running (other projects, not mine): 9
+docker containers running (this project): 5
+
+before the stage 1 benchmark runs, UTC 2026-10-13T00:55:02
+cpu: 13th Gen Intel(R) Core(TM) i7-13700HX, 24 logical CPUs
+os: Windows-11-10.0.26200-SP0
+total memory GiB: 29.7, free GiB: 1.6
+cpu busy percent, five samples two seconds apart: 18, 19, 41, 24, 39
+docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
+docker containers running (other projects, not mine): 9
+docker containers running (this project): 9
+
+before the stage 1 benchmark runs (second snapshot, stack restarted), UTC 2026-10-13T00:55:48
+cpu: 13th Gen Intel(R) Core(TM) i7-13700HX, 24 logical CPUs
+os: Windows-11-10.0.26200-SP0
+total memory GiB: 29.7, free GiB: 1.7
+cpu busy percent, five samples two seconds apart: 33, 9, 43, 35, 17
+docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
+docker containers running (other projects, not mine): 9
+docker containers running (this project): 11
+
+after all runs, UTC 2026-10-13T01:22:46
+cpu: 13th Gen Intel(R) Core(TM) i7-13700HX, 24 logical CPUs
+os: Windows-11-10.0.26200-SP0
+total memory GiB: 29.7, free GiB: 1.3
+cpu busy percent, five samples two seconds apart: 19, 20, 10, 30, 24
+docker: 24 CPUs, 14.5 GiB VM memory, engine 28.4.0
+docker containers running (other projects, not mine): 9
+docker containers running (this project): 11
+

@@ -1,0 +1,7 @@
+rep,drill,bars_inserted,expected_rows,rows_on_hdfs,duplicates,gaps,value_mismatches,ok,detail
+1,broker-kill,17480,196880,196880,0,0,0,True,"{""killed_broker"": 2, ""leader_during_outage"": 3, ""producer_restarts"": 0, ""producer_chunk_retries"": 0, ""isr_after"": {""0"": [1, 2, 3], ""1"": [1, 2, 3], ""2"": [1, 2, 3], ""3"": [1, 2, 3]}}"
+1,sink-crash,18050,214930,214930,0,0,0,True,"{""sink_runs"": 16, ""injected_crashes"": 11, ""other_exits"": 5}"
+2,broker-kill,17450,232380,232380,0,0,0,True,"{""killed_broker"": 2, ""leader_during_outage"": 3, ""producer_restarts"": 0, ""producer_chunk_retries"": 0, ""isr_after"": {""0"": [1, 2, 3], ""1"": [1, 2, 3], ""2"": [1, 2, 3], ""3"": [1, 2, 3]}}"
+2,sink-crash,17970,250350,250350,0,0,0,True,"{""sink_runs"": 16, ""injected_crashes"": 13, ""other_exits"": 3}"
+3,broker-kill,17300,267650,267650,0,0,0,True,"{""killed_broker"": 3, ""leader_during_outage"": 2, ""producer_restarts"": 0, ""producer_chunk_retries"": 0, ""isr_after"": {""0"": [1, 2, 3], ""1"": [1, 2, 3], ""2"": [1, 2, 3], ""3"": [1, 2, 3]}}"
+3,sink-crash,17780,285430,285430,0,0,0,True,"{""sink_runs"": 15, ""injected_crashes"": 9, ""other_exits"": 6}"

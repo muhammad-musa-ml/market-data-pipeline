@@ -1,0 +1,21 @@
+[19:29:39] == serving-api
+[19:30:43] api rep 1: mysql done
+[19:32:00] api rep 1: cassandra done
+[19:33:04] api rep 2: mysql done
+[19:34:16] api rep 2: cassandra done
+[19:35:21] api rep 3: mysql done
+[19:36:35] api rep 3: cassandra done
+[19:37:41] api rep 4: mysql done
+[19:39:03] api rep 4: cassandra done
+[19:40:17] api rep 5: mysql done
+[19:41:32] api rep 5: cassandra done
+[19:41:32] mysql put_record p50 ms: median 8.90 min 8.41 max 11.17 (n=5)
+[19:41:32] mysql get_company p50 ms: median 5.77 min 5.42 max 6.91 (n=5)
+[19:41:32] mysql get_30_days p50 ms: median 8.18 min 7.86 max 8.33 (n=5)
+[19:41:32] mysql get_monthly_all p50 ms: median 37.98 min 33.39 max 42.85 (n=5)
+[19:41:32] cassandra put_record p50 ms: median 10.58 min 8.59 max 10.80 (n=5)
+[19:41:32] cassandra get_company p50 ms: median 6.82 min 6.51 max 10.13 (n=5)
+[19:41:32] cassandra get_30_days p50 ms: median 10.27 min 9.24 max 12.14 (n=5)
+[19:41:32] cassandra get_monthly_all p50 ms: median 41.86 min 39.93 max 43.85 (n=5)
+[19:41:35] wrote <repo>\bench\results\serving_api_latency.csv
+EXIT=0

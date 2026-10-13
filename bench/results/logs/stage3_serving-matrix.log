@@ -1,0 +1,123 @@
+[19:41:36] == serving-matrix
+[19:41:42] == 0 node(s) down (crash)
+[19:41:42] 0 down  gRPC PutTick       ONE           5/5 OK  
+[19:41:42] 0 down  gRPC PutTicks      ONE           5/5 OK  
+[19:41:42] 0 down  gRPC GetTicks      ALL           5/5 OK  
+[19:41:42] 0 down  REST PUT record    QUORUM        5/5 OK  
+[19:41:42] 0 down  REST GET records   QUORUM        5/5 OK  
+[19:41:42] 0 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:41:43] 0 down  REST GET companies QUORUM        5/5 OK  
+[19:41:59] == 1 node(s) down (crash)
+[19:42:23] 1 down  gRPC PutTick       ONE           5/5 OK  
+[19:42:23] 1 down  gRPC PutTicks      ONE           5/5 OK  
+[19:42:23] 1 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 2 alive
+[19:42:23] 1 down  REST PUT record    QUORUM        5/5 OK  
+[19:42:23] 1 down  REST GET records   QUORUM        5/5 OK  
+[19:42:23] 1 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:42:23] 1 down  REST GET companies QUORUM        5/5 OK  
+[19:43:03] == 2 node(s) down (crash)
+[19:43:31] 2 down  gRPC PutTick       ONE           5/5 OK  
+[19:43:31] 2 down  gRPC PutTicks      ONE           5/5 OK  
+[19:43:31] 2 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 1 alive
+[19:43:32] 2 down  REST PUT record    QUORUM        0/5 503  backend unavailable
+[19:43:32] 2 down  REST GET records   QUORUM        0/5 503  backend unavailable
+[19:43:32] 2 down  REST POST company  QUORUM+SERIAL 0/5 503  backend unavailable
+[19:43:32] 2 down  REST GET companies QUORUM        0/5 503  backend unavailable
+[19:44:26] == 0 node(s) down (crash)
+[19:44:26] 0 down  gRPC PutTick       ONE           5/5 OK  
+[19:44:26] 0 down  gRPC PutTicks      ONE           5/5 OK  
+[19:44:27] 0 down  gRPC GetTicks      ALL           5/5 OK  
+[19:44:27] 0 down  REST PUT record    QUORUM        5/5 OK  
+[19:44:27] 0 down  REST GET records   QUORUM        5/5 OK  
+[19:44:27] 0 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:44:27] 0 down  REST GET companies QUORUM        5/5 OK  
+[19:44:43] == 1 node(s) down (crash)
+[19:45:06] 1 down  gRPC PutTick       ONE           5/5 OK  
+[19:45:06] 1 down  gRPC PutTicks      ONE           5/5 OK  
+[19:45:06] 1 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 2 alive
+[19:45:06] 1 down  REST PUT record    QUORUM        5/5 OK  
+[19:45:06] 1 down  REST GET records   QUORUM        5/5 OK  
+[19:45:06] 1 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:45:06] 1 down  REST GET companies QUORUM        5/5 OK  
+[19:45:33] == 2 node(s) down (crash)
+[19:45:59] 2 down  gRPC PutTick       ONE           5/5 OK  
+[19:45:59] 2 down  gRPC PutTicks      ONE           5/5 OK  
+[19:46:00] 2 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 1 alive
+[19:46:01] 2 down  REST PUT record    QUORUM        0/5 503  backend unavailable
+[19:46:01] 2 down  REST GET records   QUORUM        0/5 503  backend unavailable
+[19:46:01] 2 down  REST POST company  QUORUM+SERIAL 0/5 503  backend unavailable
+[19:46:01] 2 down  REST GET companies QUORUM        0/5 503  backend unavailable
+[19:46:41] == 0 node(s) down (crash)
+[19:46:41] 0 down  gRPC PutTick       ONE           5/5 OK  
+[19:46:41] 0 down  gRPC PutTicks      ONE           5/5 OK  
+[19:46:42] 0 down  gRPC GetTicks      ALL           5/5 OK  
+[19:46:42] 0 down  REST PUT record    QUORUM        5/5 OK  
+[19:46:42] 0 down  REST GET records   QUORUM        5/5 OK  
+[19:46:42] 0 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:46:42] 0 down  REST GET companies QUORUM        5/5 OK  
+[19:46:58] == 1 node(s) down (crash)
+[19:47:20] 1 down  gRPC PutTick       ONE           5/5 OK  
+[19:47:20] 1 down  gRPC PutTicks      ONE           5/5 OK  
+[19:47:20] 1 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 2 alive
+[19:47:21] 1 down  REST PUT record    QUORUM        5/5 OK  
+[19:47:21] 1 down  REST GET records   QUORUM        5/5 OK  
+[19:47:21] 1 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:47:21] 1 down  REST GET companies QUORUM        5/5 OK  
+[19:47:50] == 2 node(s) down (crash)
+[19:48:15] 2 down  gRPC PutTick       ONE           5/5 OK  
+[19:48:15] 2 down  gRPC PutTicks      ONE           5/5 OK  
+[19:48:15] 2 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 1 alive
+[19:48:16] 2 down  REST PUT record    QUORUM        0/5 503  backend unavailable
+[19:48:16] 2 down  REST GET records   QUORUM        0/5 503  backend unavailable
+[19:48:16] 2 down  REST POST company  QUORUM+SERIAL 0/5 503  backend unavailable
+[19:48:16] 2 down  REST GET companies QUORUM        0/5 503  backend unavailable
+[19:48:56] == 0 node(s) down (crash)
+[19:48:56] 0 down  gRPC PutTick       ONE           5/5 OK  
+[19:48:56] 0 down  gRPC PutTicks      ONE           5/5 OK  
+[19:48:56] 0 down  gRPC GetTicks      ALL           5/5 OK  
+[19:48:56] 0 down  REST PUT record    QUORUM        5/5 OK  
+[19:48:56] 0 down  REST GET records   QUORUM        5/5 OK  
+[19:48:56] 0 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:48:57] 0 down  REST GET companies QUORUM        5/5 OK  
+[19:49:13] == 1 node(s) down (crash)
+[19:49:36] 1 down  gRPC PutTick       ONE           5/5 OK  
+[19:49:36] 1 down  gRPC PutTicks      ONE           5/5 OK  
+[19:49:36] 1 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 2 alive
+[19:49:36] 1 down  REST PUT record    QUORUM        5/5 OK  
+[19:49:37] 1 down  REST GET records   QUORUM        5/5 OK  
+[19:49:37] 1 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:49:37] 1 down  REST GET companies QUORUM        5/5 OK  
+[19:50:05] == 2 node(s) down (crash)
+[19:50:31] 2 down  gRPC PutTick       ONE           5/5 OK  
+[19:50:31] 2 down  gRPC PutTicks      ONE           5/5 OK  
+[19:50:31] 2 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 1 alive
+[19:50:34] 2 down  REST PUT record    QUORUM        0/5 503  backend unavailable
+[19:50:34] 2 down  REST GET records   QUORUM        0/5 503  backend unavailable
+[19:50:34] 2 down  REST POST company  QUORUM+SERIAL 0/5 503  backend unavailable
+[19:50:34] 2 down  REST GET companies QUORUM        0/5 503  backend unavailable
+[19:51:15] == 0 node(s) down (crash)
+[19:51:15] 0 down  gRPC PutTick       ONE           5/5 OK  
+[19:51:15] 0 down  gRPC PutTicks      ONE           5/5 OK  
+[19:51:15] 0 down  gRPC GetTicks      ALL           5/5 OK  
+[19:51:15] 0 down  REST PUT record    QUORUM        5/5 OK  
+[19:51:15] 0 down  REST GET records   QUORUM        5/5 OK  
+[19:51:15] 0 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:51:15] 0 down  REST GET companies QUORUM        5/5 OK  
+[19:51:31] == 1 node(s) down (crash)
+[19:51:56] 1 down  gRPC PutTick       ONE           5/5 OK  
+[19:51:56] 1 down  gRPC PutTicks      ONE           5/5 OK  
+[19:51:56] 1 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 2 alive
+[19:51:56] 1 down  REST PUT record    QUORUM        5/5 OK  
+[19:51:56] 1 down  REST GET records   QUORUM        5/5 OK  
+[19:51:56] 1 down  REST POST company  QUORUM+SERIAL 5/5 OK  
+[19:51:56] 1 down  REST GET companies QUORUM        5/5 OK  
+[19:52:16] == 2 node(s) down (crash)
+[19:52:41] 2 down  gRPC PutTick       ONE           5/5 OK  
+[19:52:42] 2 down  gRPC PutTicks      ONE           5/5 OK  
+[19:52:44] 2 down  gRPC GetTicks      ALL           0/5 UNAVAILABLE  consistency ALL needs 3 replicas, 1 alive
+[19:52:45] 2 down  REST PUT record    QUORUM        0/5 503  backend unavailable
+[19:52:45] 2 down  REST GET records   QUORUM        0/5 503  backend unavailable
+[19:52:45] 2 down  REST POST company  QUORUM+SERIAL 0/5 503  backend unavailable
+[19:52:45] 2 down  REST GET companies QUORUM        0/5 503  backend unavailable
+[19:53:22] wrote <repo>\bench\results\availability_matrix.csv
+EXIT=0

@@ -1,0 +1,21 @@
+{
+  "name": "fault_drills",
+  "when": "2026-10-12T20:22:08-0500",
+  "argv": [
+    "bench/run_bench.py",
+    "drills",
+    "--reps",
+    "3",
+    "--final"
+  ],
+  "machine": {
+    "host_cpu": "13th Gen Intel(R) Core(TM) i7-13700HX",
+    "docker_cpus": 24,
+    "docker_memory_gib": 14.5,
+    "docker_version": "28.4.0",
+    "docker_os": "Docker Desktop",
+    "host_os": "Windows-11-10.0.26200-SP0",
+    "commit": "dcfa7e7c6dbef58132d281b5c7436a2e7daa20ee",
+    "uncommitted_changes": true
+  }
+}

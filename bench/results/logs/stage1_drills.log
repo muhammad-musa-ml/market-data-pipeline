@@ -1,0 +1,30 @@
+[20:11:36] == drills
+[20:11:39] leader of partition 0 is broker 2; producing at 300 bars/s
+[20:12:00] killed kafka-2
+[20:12:31] restarted kafka-2
+[20:12:55] generator stopped; 17480 bars inserted; waiting for the sink to drain
+[20:13:21] broker result: {"killed_broker": 2, "bars_inserted": 17480, "leader_during_outage": 3, "producer_restarts": 0, "producer_chunk_retries": 0, "isr_after": {"0": [1, 2, 3], "1": [1, 2, 3], "2": [1, 2, 3], "3": [1, 2, 3]}, "check": {"expected": 196880, "found_rows": 196880, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[20:13:21] broker-kill rep 1: 196880 of 196880 rows, 0 duplicates, 0 gaps
+[20:14:41] 16 sink runs, 11 injected crashes between write and checkpoint, 5 runs ended by docker kill or otherwise; 18050 bars inserted
+[20:15:03] sink-crash result: {"sink_runs": 16, "injected_crashes": 11, "other_exits": 5, "bars_inserted": 18050, "check": {"expected": 214930, "found_rows": 214930, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[20:15:03] sink-crash rep 1: 214930 of 214930 rows, 0 duplicates, 0 gaps
+[20:15:06] leader of partition 0 is broker 2; producing at 300 bars/s
+[20:15:26] killed kafka-2
+[20:15:54] restarted kafka-2
+[20:16:21] generator stopped; 17450 bars inserted; waiting for the sink to drain
+[20:16:45] broker result: {"killed_broker": 2, "bars_inserted": 17450, "leader_during_outage": 3, "producer_restarts": 0, "producer_chunk_retries": 0, "isr_after": {"0": [1, 2, 3], "1": [1, 2, 3], "2": [1, 2, 3], "3": [1, 2, 3]}, "check": {"expected": 232380, "found_rows": 232380, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[20:16:45] broker-kill rep 2: 232380 of 232380 rows, 0 duplicates, 0 gaps
+[20:18:04] 16 sink runs, 13 injected crashes between write and checkpoint, 3 runs ended by docker kill or otherwise; 17970 bars inserted
+[20:18:32] sink-crash result: {"sink_runs": 16, "injected_crashes": 13, "other_exits": 3, "bars_inserted": 17970, "check": {"expected": 250350, "found_rows": 250350, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[20:18:32] sink-crash rep 2: 250350 of 250350 rows, 0 duplicates, 0 gaps
+[20:18:35] leader of partition 0 is broker 3; producing at 300 bars/s
+[20:18:56] killed kafka-3
+[20:19:29] restarted kafka-3
+[20:19:52] generator stopped; 17300 bars inserted; waiting for the sink to drain
+[20:20:18] broker result: {"killed_broker": 3, "bars_inserted": 17300, "leader_during_outage": 2, "producer_restarts": 0, "producer_chunk_retries": 0, "isr_after": {"0": [1, 2, 3], "1": [1, 2, 3], "2": [1, 2, 3], "3": [1, 2, 3]}, "check": {"expected": 267650, "found_rows": 267650, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[20:20:18] broker-kill rep 3: 267650 of 267650 rows, 0 duplicates, 0 gaps
+[20:21:38] 15 sink runs, 9 injected crashes between write and checkpoint, 6 runs ended by docker kill or otherwise; 17780 bars inserted
+[20:22:08] sink-crash result: {"sink_runs": 15, "injected_crashes": 9, "other_exits": 6, "bars_inserted": 17780, "check": {"expected": 285430, "found_rows": 285430, "duplicate_count": 0, "gap_count": 0, "mismatch_count": 0, "ok": true}}
+[20:22:08] sink-crash rep 3: 285430 of 285430 rows, 0 duplicates, 0 gaps
+[20:22:12] wrote <repo>\bench\results\fault_drills.csv
+EXIT=0

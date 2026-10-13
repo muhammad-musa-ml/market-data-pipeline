@@ -1,0 +1,39 @@
+[19:17:13] == serving-load
+[19:17:59] load rep 1: cassandra x16 batch 1: 3354 rows/s
+[19:18:47] load rep 1: cassandra x64 batch 1: 3255 rows/s
+[19:19:20] load rep 1: cassandra x256 batch 1: 5337 rows/s
+[19:19:30] load rep 1: cassandra x64 batch 50: 41221 rows/s
+[19:19:40] load rep 1: cassandra x256 batch 50: 43086 rows/s
+[19:19:50] load rep 1: mysql x64 batch 1: 33850 rows/s
+[19:20:34] load rep 2: cassandra x16 batch 1: 3542 rows/s
+[19:21:12] load rep 2: cassandra x64 batch 1: 4257 rows/s
+[19:21:44] load rep 2: cassandra x256 batch 1: 5552 rows/s
+[19:21:54] load rep 2: cassandra x64 batch 50: 44153 rows/s
+[19:22:04] load rep 2: cassandra x256 batch 50: 43923 rows/s
+[19:22:14] load rep 2: mysql x64 batch 1: 36439 rows/s
+[19:23:00] load rep 3: cassandra x16 batch 1: 3399 rows/s
+[19:23:38] load rep 3: cassandra x64 batch 1: 4242 rows/s
+[19:24:10] load rep 3: cassandra x256 batch 1: 5248 rows/s
+[19:24:20] load rep 3: cassandra x64 batch 50: 44731 rows/s
+[19:24:30] load rep 3: cassandra x256 batch 50: 43271 rows/s
+[19:24:40] load rep 3: mysql x64 batch 1: 38516 rows/s
+[19:25:25] load rep 4: cassandra x16 batch 1: 3447 rows/s
+[19:26:03] load rep 4: cassandra x64 batch 1: 4251 rows/s
+[19:26:34] load rep 4: cassandra x256 batch 1: 5592 rows/s
+[19:26:44] load rep 4: cassandra x64 batch 50: 40093 rows/s
+[19:26:54] load rep 4: cassandra x256 batch 50: 42906 rows/s
+[19:27:05] load rep 4: mysql x64 batch 1: 36684 rows/s
+[19:27:49] load rep 5: cassandra x16 batch 1: 3551 rows/s
+[19:28:29] load rep 5: cassandra x64 batch 1: 4058 rows/s
+[19:29:00] load rep 5: cassandra x256 batch 1: 5382 rows/s
+[19:29:10] load rep 5: cassandra x64 batch 50: 44318 rows/s
+[19:29:21] load rep 5: cassandra x256 batch 50: 37795 rows/s
+[19:29:35] load rep 5: mysql x64 batch 1: 29329 rows/s
+[19:29:35] cassandra x16 batch 1 rows/s: median 3447.10 min 3354.00 max 3551.40 (n=5)
+[19:29:35] cassandra x64 batch 1 rows/s: median 4241.90 min 3254.70 max 4256.90 (n=5)
+[19:29:35] cassandra x256 batch 1 rows/s: median 5382.20 min 5248.40 max 5591.50 (n=5)
+[19:29:35] cassandra x64 batch 50 rows/s: median 44153.30 min 40093.10 max 44730.70 (n=5)
+[19:29:35] cassandra x256 batch 50 rows/s: median 43086.50 min 37794.60 max 43922.70 (n=5)
+[19:29:35] mysql x64 batch 1 rows/s: median 36438.80 min 29329.10 max 38516.20 (n=5)
+[19:29:39] wrote <repo>\bench\results\loader_throughput.csv
+EXIT=0

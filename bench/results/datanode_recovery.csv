@@ -1,0 +1,6 @@
+rep,victim,cache_files_lost,recovery_s,slowest_call_ms,errors
+1,datanode1,17,8.11,8105.6,0
+2,datanode3,18,4.68,4680.1,0
+3,datanode2,20,3.21,3528.0,0
+4,datanode1,19,1.67,4622.5,0
+5,datanode3,18,3.21,3195.7,0

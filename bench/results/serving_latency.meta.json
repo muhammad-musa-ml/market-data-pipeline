@@ -1,0 +1,31 @@
+{
+  "name": "serving_latency",
+  "when": "2026-10-12T19:17:09-0500",
+  "argv": [
+    "bench/run_bench.py",
+    "serving-latency",
+    "--reps",
+    "5",
+    "--n",
+    "2000",
+    "--warmup",
+    "200",
+    "--final"
+  ],
+  "machine": {
+    "host_cpu": "13th Gen Intel(R) Core(TM) i7-13700HX",
+    "docker_cpus": 24,
+    "docker_memory_gib": 14.5,
+    "docker_version": "28.4.0",
+    "docker_os": "Docker Desktop",
+    "host_os": "Windows-11-10.0.26200-SP0",
+    "commit": "dcfa7e7c6dbef58132d281b5c7436a2e7daa20ee",
+    "uncommitted_changes": true
+  },
+  "cluster": "cassandra:5.0.9, 3 nodes, SimpleStrategy RF 3, heap 512M/128M new, 1280m container limit, 2 vCPU visible to each JVM",
+  "mysql": "mysql:8.4, buffer pool 128M, 512m limit",
+  "api": "gunicorn 2 workers x 4 threads",
+  "driver": "cassandra-driver 3.30.1, protocol v5",
+  "requests_per_level": 2000,
+  "warmup": 200
+}

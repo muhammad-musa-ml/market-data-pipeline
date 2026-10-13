@@ -1,0 +1,48 @@
+[19:55:53] == producer
+[19:56:06] producer rep 1: 25524 msg/s over 130000 messages
+[19:56:16] producer rep 2: 30935 msg/s over 130000 messages
+[19:56:29] producer rep 3: 28572 msg/s over 130000 messages
+[19:56:43] producer rep 4: 26493 msg/s over 130000 messages
+[19:56:56] producer rep 5: 30632 msg/s over 130000 messages
+[19:56:56] producer msg/s: median 28572.00 min 25524.00 max 30935.00 (n=5)
+[19:56:59] wrote <repo>\bench\results\producer_throughput.csv
+[19:56:59] == lag
+[19:58:24] lag rep 1: p50 0.91s p95 1.52s over 7020 rows
+[19:59:50] lag rep 2: p50 0.85s p95 1.41s over 6970 rows
+[20:01:16] lag rep 3: p50 0.84s p95 1.40s over 7010 rows
+[20:02:43] lag rep 4: p50 0.82s p95 1.37s over 6990 rows
+[20:04:12] lag rep 5: p50 0.81s p95 1.35s over 6980 rows
+[20:04:12] lag p50 (s): median 0.84 min 0.81 max 0.92 (n=5)
+[20:04:12] lag p95 (s): median 1.41 min 1.35 max 1.52 (n=5)
+[20:04:14] wrote <repo>\bench\results\end_to_end_lag.csv
+[20:04:14] == export
+[20:04:23] export rows/s: median 79025.40 min 69537.90 max 80302.80 (n=5)
+[20:04:25] wrote <repo>\bench\results\export_rate.csv
+[20:04:25] == datanode
+[20:04:34] cache files per datanode: datanode1=17, datanode2=4, datanode3=9
+[20:04:34] killing datanode1 (17 replication-1 cache files live there)
+[20:05:07] datanode result: {"victim": "datanode1", "affected_files": 17, "calls_after_kill": 30, "errors": 0, "recreated": 17, "recreated_unaffected": [], "recovery_seconds": 8.11, "slowest_call_ms": 8105.6}
+[20:05:29] cache files per datanode: datanode2=12, datanode3=18
+[20:05:30] killing datanode3 (18 replication-1 cache files live there)
+[20:06:02] datanode result: {"victim": "datanode3", "affected_files": 18, "calls_after_kill": 30, "errors": 0, "recreated": 18, "recreated_unaffected": [], "recovery_seconds": 4.68, "slowest_call_ms": 4680.1}
+[20:06:24] cache files per datanode: datanode1=10, datanode2=20
+[20:06:25] killing datanode2 (20 replication-1 cache files live there)
+[20:06:56] datanode result: {"victim": "datanode2", "affected_files": 20, "calls_after_kill": 60, "errors": 0, "recreated": 20, "recreated_unaffected": [], "recovery_seconds": 3.21, "slowest_call_ms": 3528.0}
+[20:07:18] cache files per datanode: datanode1=19, datanode3=11
+[20:07:19] killing datanode1 (19 replication-1 cache files live there)
+[20:07:51] datanode result: {"victim": "datanode1", "affected_files": 19, "calls_after_kill": 30, "errors": 0, "recreated": 19, "recreated_unaffected": [], "recovery_seconds": 1.67, "slowest_call_ms": 4622.5}
+[20:08:14] cache files per datanode: datanode2=12, datanode3=18
+[20:08:14] killing datanode3 (18 replication-1 cache files live there)
+[20:08:46] datanode result: {"victim": "datanode3", "affected_files": 18, "calls_after_kill": 30, "errors": 0, "recreated": 18, "recreated_unaffected": [], "recovery_seconds": 3.21, "slowest_call_ms": 3195.7}
+[20:09:01] recovery (s): median 3.21 min 1.67 max 8.11 (n=5)
+[20:09:04] wrote <repo>\bench\results\datanode_recovery.csv
+[20:09:04] == sink-recovery
+[20:09:25] sink recovery rep 1: {'backlog_messages': 1554, 'first_batch_s': 2.08, 'caught_up_s': 2.37}
+[20:09:52] sink recovery rep 2: {'backlog_messages': 1552, 'first_batch_s': 2.17, 'caught_up_s': 2.46}
+[20:10:19] sink recovery rep 3: {'backlog_messages': 1454, 'first_batch_s': 2.18, 'caught_up_s': 2.49}
+[20:10:46] sink recovery rep 4: {'backlog_messages': 1520, 'first_batch_s': 2.18, 'caught_up_s': 2.48}
+[20:11:13] sink recovery rep 5: {'backlog_messages': 1492, 'first_batch_s': 2.21, 'caught_up_s': 2.5}
+[20:11:34] first batch after restart (s): median 2.18 min 2.08 max 2.21 (n=5)
+[20:11:34] caught up (s): median 2.48 min 2.37 max 2.50 (n=5)
+[20:11:36] wrote <repo>\bench\results\sink_restart_recovery.csv
+EXIT=0

@@ -1,0 +1,106 @@
+rep,nodes_down,mode,surface,op,consistency,attempts,succeeded,outcome,detail,median_ms,max_ms,seconds_to_detect
+1,0,crash,gRPC,PutTick,ONE,5,5,OK,,5.4,121.2,0.0
+1,0,crash,gRPC,PutTicks,ONE,5,5,OK,,23.6,27.1,0.0
+1,0,crash,gRPC,GetTicks,ALL,5,5,OK,,7.9,20.8,0.0
+1,0,crash,REST,PUT record,QUORUM,5,5,OK,,8.6,9.1,0.0
+1,0,crash,REST,GET records,QUORUM,5,5,OK,,8.1,8.7,0.0
+1,0,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,11.8,13.2,0.0
+1,0,crash,REST,GET companies,QUORUM,5,5,OK,,17.7,98.5,0.0
+1,1,crash,gRPC,PutTick,ONE,5,5,OK,,4.3,9.2,21.8
+1,1,crash,gRPC,PutTicks,ONE,5,5,OK,,16.9,19.7,21.8
+1,1,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 2 alive",5.9,33.2,21.8
+1,1,crash,REST,PUT record,QUORUM,5,5,OK,,9.4,11.4,21.8
+1,1,crash,REST,GET records,QUORUM,5,5,OK,,10.3,10.9,21.8
+1,1,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,14.2,20.8,21.8
+1,1,crash,REST,GET companies,QUORUM,5,5,OK,,19.1,20.5,21.8
+1,2,crash,gRPC,PutTick,ONE,5,5,OK,,4.8,7.4,20.5
+1,2,crash,gRPC,PutTicks,ONE,5,5,OK,,16.4,19.2,20.5
+1,2,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 1 alive",4.4,6.9,20.5
+1,2,crash,REST,PUT record,QUORUM,5,0,503,backend unavailable,6.7,1010.3,20.5
+1,2,crash,REST,GET records,QUORUM,5,0,503,backend unavailable,6.5,7.2,20.5
+1,2,crash,REST,POST company,QUORUM+SERIAL,5,0,503,backend unavailable,7.0,8.0,20.5
+1,2,crash,REST,GET companies,QUORUM,5,0,503,backend unavailable,6.6,7.9,20.5
+2,0,crash,gRPC,PutTick,ONE,5,5,OK,,5.6,16.0,0.0
+2,0,crash,gRPC,PutTicks,ONE,5,5,OK,,21.2,24.7,0.0
+2,0,crash,gRPC,GetTicks,ALL,5,5,OK,,14.2,22.5,0.0
+2,0,crash,REST,PUT record,QUORUM,5,5,OK,,11.7,14.8,0.0
+2,0,crash,REST,GET records,QUORUM,5,5,OK,,14.0,15.0,0.0
+2,0,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,19.4,31.3,0.0
+2,0,crash,REST,GET companies,QUORUM,5,5,OK,,40.2,82.5,0.0
+2,1,crash,gRPC,PutTick,ONE,5,5,OK,,3.9,4.5,21.1
+2,1,crash,gRPC,PutTicks,ONE,5,5,OK,,15.5,16.4,21.1
+2,1,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 2 alive",6.8,13.3,21.1
+2,1,crash,REST,PUT record,QUORUM,5,5,OK,,11.3,11.7,21.1
+2,1,crash,REST,GET records,QUORUM,5,5,OK,,10.9,11.9,21.1
+2,1,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,15.1,16.1,21.1
+2,1,crash,REST,GET companies,QUORUM,5,5,OK,,19.2,35.2,21.1
+2,2,crash,gRPC,PutTick,ONE,5,5,OK,,4.8,4.9,18.9
+2,2,crash,gRPC,PutTicks,ONE,5,5,OK,,17.0,21.5,18.9
+2,2,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 1 alive",4.2,885.8,18.9
+2,2,crash,REST,PUT record,QUORUM,5,0,503,backend unavailable,14.8,1133.1,18.9
+2,2,crash,REST,GET records,QUORUM,5,0,503,backend unavailable,7.7,9.7,18.9
+2,2,crash,REST,POST company,QUORUM+SERIAL,5,0,503,backend unavailable,7.2,8.1,18.9
+2,2,crash,REST,GET companies,QUORUM,5,0,503,backend unavailable,6.2,6.6,18.9
+3,0,crash,gRPC,PutTick,ONE,5,5,OK,,5.6,14.2,0.0
+3,0,crash,gRPC,PutTicks,ONE,5,5,OK,,18.5,21.2,0.0
+3,0,crash,gRPC,GetTicks,ALL,5,5,OK,,11.5,15.8,0.0
+3,0,crash,REST,PUT record,QUORUM,5,5,OK,,12.3,12.8,0.0
+3,0,crash,REST,GET records,QUORUM,5,5,OK,,13.1,14.8,0.0
+3,0,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,14.4,15.1,0.0
+3,0,crash,REST,GET companies,QUORUM,5,5,OK,,38.8,78.6,0.0
+3,1,crash,gRPC,PutTick,ONE,5,5,OK,,3.1,4.1,20.7
+3,1,crash,gRPC,PutTicks,ONE,5,5,OK,,14.8,15.8,20.7
+3,1,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 2 alive",5.7,14.5,20.7
+3,1,crash,REST,PUT record,QUORUM,5,5,OK,,12.0,43.0,20.7
+3,1,crash,REST,GET records,QUORUM,5,5,OK,,11.8,12.1,20.7
+3,1,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,12.1,24.7,20.7
+3,1,crash,REST,GET companies,QUORUM,5,5,OK,,18.5,28.1,20.7
+3,2,crash,gRPC,PutTick,ONE,5,5,OK,,4.8,7.8,19.2
+3,2,crash,gRPC,PutTicks,ONE,5,5,OK,,15.0,17.9,19.2
+3,2,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 1 alive",4.9,5.9,19.2
+3,2,crash,REST,PUT record,QUORUM,5,0,503,backend unavailable,6.8,288.8,19.2
+3,2,crash,REST,GET records,QUORUM,5,0,503,backend unavailable,6.7,8.0,19.2
+3,2,crash,REST,POST company,QUORUM+SERIAL,5,0,503,backend unavailable,6.7,8.0,19.2
+3,2,crash,REST,GET companies,QUORUM,5,0,503,backend unavailable,6.1,6.8,19.2
+4,0,crash,gRPC,PutTick,ONE,5,5,OK,,6.2,32.0,0.0
+4,0,crash,gRPC,PutTicks,ONE,5,5,OK,,23.3,25.1,0.0
+4,0,crash,gRPC,GetTicks,ALL,5,5,OK,,14.8,22.0,0.0
+4,0,crash,REST,PUT record,QUORUM,5,5,OK,,14.2,14.7,0.0
+4,0,crash,REST,GET records,QUORUM,5,5,OK,,15.8,17.1,0.0
+4,0,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,17.2,46.2,0.0
+4,0,crash,REST,GET companies,QUORUM,5,5,OK,,45.5,92.4,0.0
+4,1,crash,gRPC,PutTick,ONE,5,5,OK,,3.8,4.7,21.6
+4,1,crash,gRPC,PutTicks,ONE,5,5,OK,,17.1,17.8,21.6
+4,1,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 2 alive",6.2,14.3,21.6
+4,1,crash,REST,PUT record,QUORUM,5,5,OK,,13.4,69.5,21.6
+4,1,crash,REST,GET records,QUORUM,5,5,OK,,12.6,21.9,21.6
+4,1,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,16.0,19.6,21.6
+4,1,crash,REST,GET companies,QUORUM,5,5,OK,,25.8,38.5,21.6
+4,2,crash,gRPC,PutTick,ONE,5,5,OK,,5.1,6.8,19.6
+4,2,crash,gRPC,PutTicks,ONE,5,5,OK,,13.8,15.8,19.6
+4,2,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 1 alive",3.2,3.6,19.6
+4,2,crash,REST,PUT record,QUORUM,5,0,503,backend unavailable,13.3,2655.9,19.6
+4,2,crash,REST,GET records,QUORUM,5,0,503,backend unavailable,4.5,6.3,19.6
+4,2,crash,REST,POST company,QUORUM+SERIAL,5,0,503,backend unavailable,4.7,4.8,19.6
+4,2,crash,REST,GET companies,QUORUM,5,0,503,backend unavailable,5.2,6.1,19.6
+5,0,crash,gRPC,PutTick,ONE,5,5,OK,,6.0,27.2,0.0
+5,0,crash,gRPC,PutTicks,ONE,5,5,OK,,19.8,21.9,0.0
+5,0,crash,gRPC,GetTicks,ALL,5,5,OK,,12.2,21.0,0.0
+5,0,crash,REST,PUT record,QUORUM,5,5,OK,,10.7,10.9,0.0
+5,0,crash,REST,GET records,QUORUM,5,5,OK,,12.0,12.2,0.0
+5,0,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,13.6,33.9,0.0
+5,0,crash,REST,GET companies,QUORUM,5,5,OK,,36.3,69.0,0.0
+5,1,crash,gRPC,PutTick,ONE,5,5,OK,,3.3,5.1,23.2
+5,1,crash,gRPC,PutTicks,ONE,5,5,OK,,16.4,18.8,23.2
+5,1,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 2 alive",6.6,13.1,23.2
+5,1,crash,REST,PUT record,QUORUM,5,5,OK,,11.1,12.9,23.2
+5,1,crash,REST,GET records,QUORUM,5,5,OK,,10.9,12.0,23.2
+5,1,crash,REST,POST company,QUORUM+SERIAL,5,5,OK,,13.9,16.8,23.2
+5,1,crash,REST,GET companies,QUORUM,5,5,OK,,24.3,27.7,23.2
+5,2,crash,gRPC,PutTick,ONE,5,5,OK,,5.8,11.0,18.8
+5,2,crash,gRPC,PutTicks,ONE,5,5,OK,,14.0,15.7,18.8
+5,2,crash,gRPC,GetTicks,ALL,5,0,UNAVAILABLE,"consistency ALL needs 3 replicas, 1 alive",6.5,2388.7,18.8
+5,2,crash,REST,PUT record,QUORUM,5,0,503,backend unavailable,6.8,690.6,18.8
+5,2,crash,REST,GET records,QUORUM,5,0,503,backend unavailable,5.8,5.8,18.8
+5,2,crash,REST,POST company,QUORUM+SERIAL,5,0,503,backend unavailable,5.7,6.6,18.8
+5,2,crash,REST,GET companies,QUORUM,5,0,503,backend unavailable,5.8,6.0,18.8
