@@ -51,6 +51,16 @@ def table(rows, group, values, labels=None) -> list[str]:
     return out
 
 
+def loader_rows(rows):
+    """The MySQL store ignores the batch_size flag and sends INSERT_CHUNK rows per statement,
+    so show that number instead of the flag's default."""
+    chunk = "?"
+    for line in (ROOT / "src" / "mdp" / "serving" / "mysql_store.py").read_text().splitlines():
+        if line.startswith("INSERT_CHUNK"):
+            chunk = line.split("=")[1].strip()
+    return [{**r, "batch_size": chunk} if r.get("backend") == "mysql" else r for r in rows]
+
+
 def per_rep(rows, rep_cols, fn):
     """Reduce the rows of each repetition (and group) to one row with fn(rows) -> dict."""
     buckets = defaultdict(list)
@@ -146,7 +156,7 @@ SECTIONS = [
     ("serving_api_latency", "Stage 3: REST latency from the host, milliseconds",
      lambda rows: table(rows, ["backend", "op"], ["p50_ms", "p95_ms", "p99_ms"])),
     ("loader_throughput", "Stage 3: loader rows per second",
-     lambda rows: table(rows, ["backend", "concurrency", "batch_size"], ["rows_per_s"])),
+     lambda rows: table(loader_rows(rows), ["backend", "concurrency", "batch_size"], ["rows_per_s"])),
     ("availability_matrix", "Stage 3: availability with 0, 1 and 2 Cassandra nodes down (attempts summed over runs)",
      matrix),
 ]

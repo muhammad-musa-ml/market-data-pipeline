@@ -205,7 +205,7 @@ Depth chosen on the validation block, per repetition: 4 (rep 1), 5 (rep 2), 4 (r
 | cassandra | 256 | 1 | 5,382 (5,248 to 5,592), n=5 |
 | cassandra | 64 | 50 | 44,153 (40,093 to 44,731), n=5 |
 | cassandra | 256 | 50 | 43,086 (37,795 to 43,923), n=5 |
-| mysql | 64 | 1 | 36,439 (29,329 to 38,516), n=5 |
+| mysql | 64 | 2000 | 36,439 (29,329 to 38,516), n=5 |
 
 ## Stage 3: availability with 0, 1 and 2 Cassandra nodes down (attempts summed over runs)
 
